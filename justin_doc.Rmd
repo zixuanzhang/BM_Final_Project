@@ -5,3 +5,34 @@ date: "12/7/2018"
 output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+library(tidyverse)
+```
+
+After lit review, I chose these variables:
+target_death_rate, med_income, poverty_percent, median_age, median_age_male, median_age_female, geography, pct_no_hs18_24, pct_hs18_24, pct_some_col18_24, pct_bach_deg18_24, pct_hs25_over, pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over, pct_white, pct_black, pct_asian, pct_other_race
+
+Sources:
+https://www.ncbi.nlm.nih.gov/pubmed/17848670
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4544764/
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3153584/
+
+
+```{r data_clean}
+cancer_data = read.csv(file = "./data/Cancer_Registry.csv") %>%
+  janitor::clean_names()
+model_covariates = cancer_data %>% 
+  select(target_death_rate, med_income, poverty_percent, median_age,
+         median_age_male, median_age_female, geography, pct_no_hs18_24,
+         pct_hs18_24, pct_some_col18_24, pct_bach_deg18_24, pct_hs25_over,
+         pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over,
+         pct_white, pct_black, pct_asian, pct_other_race) %>% 
+  na.omit()
+just_covariates = cancer_data %>% 
+  select(-target_death_rate) %>% 
+  colnames()
+```
+

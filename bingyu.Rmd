@@ -74,3 +74,17 @@ str(cancer_raw)
   geom_boxplot()
 ```
 
+**Literature search**
+
+* Reference:
+* Income: https://www.nejm.org/doi/pdf/10.1056/NEJMp1615069
+* Race: https://www.ncbi.nlm.nih.gov/pubmed/28718431
+        https://www.ncbi.nlm.nih.gov/pubmed/28663175
+        https://www.ncbi.nlm.nih.gov/pubmed/25825511
+* Education: https://www.ncbi.nlm.nih.gov/pubmed/28177482
+             https://www.ncbi.nlm.nih.gov/pubmed/28051039
+             https://www.ncbi.nlm.nih.gov/pubmed/27070947
+* Statistics: https://www.ncbi.nlm.nih.gov/pubmed/28055103
+* Gender: https://www.ncbi.nlm.nih.gov/pubmed/26346676
+* Socioeconomic status: https://www.ncbi.nlm.nih.gov/pubmed/25288143
+

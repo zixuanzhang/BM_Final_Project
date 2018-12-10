@@ -24,14 +24,19 @@ https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3153584/
 ```{r data_clean}
 cancer_data = read.csv(file = "./data/Cancer_Registry.csv") %>%
   janitor::clean_names()
-model_covariates = cancer_data %>% 
+model_covariates = cancer_data %>%  
+  separate(geography, into = c("county", "state"), sep = ", ") %>% 
   select(target_death_rate, med_income, poverty_percent, median_age,
-         median_age_male, median_age_female, geography, pct_no_hs18_24,
+         median_age_male, median_age_female, state, pct_no_hs18_24,
          pct_hs18_24, pct_some_col18_24, pct_bach_deg18_24, pct_hs25_over,
          pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over,
          pct_white, pct_black, pct_asian, pct_other_race) %>% 
-  na.omit()
-just_covariates = cancer_data %>% 
+  na.omit() %>% 
+  group_by(state) %>% 
+  summarize_all(mean)
+
+
+just_covariates = model_covariates %>% 
   select(-target_death_rate) %>% 
   colnames()
 ```

@@ -11,13 +11,14 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
-## Data Import
+##Data Import
 
 ```{r}
 cancer_raw =
   read_csv("./data/Cancer_Registry.csv") %>% 
   janitor::clean_names() %>% 
-  select(target_death_rate, everything())
+  select(target_death_rate, geography, everything()) %>% 
+  separate(geography, into = c("county", "state"), sep = ",")
 ```
 
 **Variables**
@@ -55,4 +56,21 @@ cancer_raw =
 * **pct_asian:** percent of county residents who identify as Asian (b)                  
 * **pct_other_race:** percent of county residents who identify in a category which is not White, Black, or Asian (b)          
 * **pct_married_households:** percent of married households (b)
-* **birth_rate:** number of live births relative to number of women in county (b)               
+* **birth_rate:** number of live births relative to number of women in county (b)
+
+##Check raw data
+
+```{r}
+str(cancer_raw)
+```
+
+##Cancer by state
+```{r}
+#cancer_state_all =
+  cancer_raw %>% 
+  #select(-county) %>% 
+  group_by(state) %>% 
+  ggplot(aes(x = state, y = target_death_rate)) +
+  geom_boxplot()
+```
+

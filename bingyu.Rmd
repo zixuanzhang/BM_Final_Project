@@ -88,3 +88,22 @@ str(cancer_raw)
 * Gender: https://www.ncbi.nlm.nih.gov/pubmed/26346676
 * Socioeconomic status: https://www.ncbi.nlm.nih.gov/pubmed/25288143
 
+##Variable selection
+
+**By county**
+```{r}
+cancer_county =
+  cancer_raw %>% 
+  select(target_death_rate, county, incidence_rate, med_income, poverty_percent, median_age:median_age_female, pct_no_hs18_24:pct_other_race)
+```
+
+**By state**
+```{r}
+cancer_state =
+  cancer_raw %>% 
+  select(target_death_rate, state, incidence_rate, med_income, poverty_percent, median_age:median_age_female, pct_no_hs18_24:pct_other_race) %>%
+  group_by(state) %>% 
+  summarize_all(median)
+```
+
+

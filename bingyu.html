@@ -252,6 +252,19 @@ $(document).ready(function () {
 <li>Socioeconomic status: <a href="https://www.ncbi.nlm.nih.gov/pubmed/25288143" class="uri">https://www.ncbi.nlm.nih.gov/pubmed/25288143</a></li>
 </ul>
 </div>
+<div id="variable-selection" class="section level2">
+<h2>Variable selection</h2>
+<p><strong>By county</strong></p>
+<pre class="r"><code>cancer_county =
+  cancer_raw %&gt;% 
+  select(target_death_rate, county, incidence_rate, med_income, poverty_percent, median_age:median_age_female, pct_no_hs18_24:pct_other_race)</code></pre>
+<p><strong>By state</strong></p>
+<pre class="r"><code>cancer_state =
+  cancer_raw %&gt;% 
+  select(target_death_rate, state, incidence_rate, med_income, poverty_percent, median_age:median_age_female, pct_no_hs18_24:pct_other_race) %&gt;%
+  group_by(state) %&gt;% 
+  summarize_all(median)</code></pre>
+</div>
 
 
 

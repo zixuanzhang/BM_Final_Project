@@ -105,14 +105,13 @@ Low income was defined as the lowest quartile of incomes (<$35,000)
 
 **By county**
 ```{r}
-cancer_county =
+cancer_county_hs =
   cancer_raw %>% 
   select(target_death_rate, county, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_other_race) %>% 
-  gather(key = covariate, value = value, -county) %>% 
-  mutate(covariate = str_replace_all(covariate, c("pct_no_hs18_24" = "pct_hs18_24", "pct_hs18_24" = "pct_hs18_24"))) %>% 
-  group_by(county, covariate) %>% 
-  summarize(value = sum(value, na.rm = TRUE)) %>% 
-  spread(covariate, value)
+  mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
+         pct_above_hs18_24 = 100 - pct_upto_hs18_24,
+         pct_minority = pct_black + pct_asian + pct_other_race) %>% 
+  select(-(pct_no_hs18_24:pct_bach_deg18_24))
 ```
 
 **By state**

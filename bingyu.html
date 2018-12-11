@@ -270,14 +270,13 @@ $(document).ready(function () {
 <li>Income classfication by <a href="https://www.ncbi.nlm.nih.gov/pubmed/26930647" class="uri">https://www.ncbi.nlm.nih.gov/pubmed/26930647</a> Low income was defined as the lowest quartile of incomes (&lt;$35,000)</li>
 </ul>
 <p><strong>By county</strong></p>
-<pre class="r"><code>cancer_county =
+<pre class="r"><code>cancer_county_hs =
   cancer_raw %&gt;% 
   select(target_death_rate, county, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_other_race) %&gt;% 
-  gather(key = covariate, value = value, -county) %&gt;% 
-  mutate(covariate = str_replace_all(covariate, c(&quot;pct_no_hs18_24&quot; = &quot;pct_hs18_24&quot;, &quot;pct_hs18_24&quot; = &quot;pct_hs18_24&quot;))) %&gt;% 
-  group_by(county, covariate) %&gt;% 
-  summarize(value = sum(value, na.rm = TRUE)) %&gt;% 
-  spread(covariate, value)</code></pre>
+  mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
+         pct_above_hs18_24 = 100 - pct_upto_hs18_24,
+         pct_minority = pct_black + pct_asian + pct_other_race) %&gt;% 
+  select(-(pct_no_hs18_24:pct_bach_deg18_24))</code></pre>
 <p><strong>By state</strong></p>
 <pre class="r"><code>cancer_state =
   cancer_raw %&gt;% 

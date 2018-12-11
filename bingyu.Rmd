@@ -109,7 +109,7 @@ cancer_county =
   cancer_raw %>% 
   select(target_death_rate, county, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_other_race) %>% 
   gather(key = covariate, value = value, -county) %>% 
-  mutate(covariate = str_replace_all(covariate, c("pct_no_hs18_24" = "pct_hs", "pct_hs18_24" = "pct_hs", "pct_hs25_over" = "pct_hs", "pct_bach_deg18_24" = "pct_col", "pct_bach_deg25_over" = "pct_col"))) %>% 
+  mutate(covariate = str_replace_all(covariate, c("pct_no_hs18_24" = "pct_hs18_24", "pct_hs18_24" = "pct_hs18_24"))) %>% 
   group_by(county, covariate) %>% 
   summarize(value = sum(value, na.rm = TRUE)) %>% 
   spread(covariate, value)

@@ -274,7 +274,7 @@ $(document).ready(function () {
   cancer_raw %&gt;% 
   select(target_death_rate, county, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_other_race) %&gt;% 
   gather(key = covariate, value = value, -county) %&gt;% 
-  mutate(covariate = str_replace_all(covariate, c(&quot;pct_no_hs18_24&quot; = &quot;pct_hs&quot;, &quot;pct_hs18_24&quot; = &quot;pct_hs&quot;, &quot;pct_hs25_over&quot; = &quot;pct_hs&quot;, &quot;pct_bach_deg18_24&quot; = &quot;pct_col&quot;, &quot;pct_bach_deg25_over&quot; = &quot;pct_col&quot;))) %&gt;% 
+  mutate(covariate = str_replace_all(covariate, c(&quot;pct_no_hs18_24&quot; = &quot;pct_hs18_24&quot;, &quot;pct_hs18_24&quot; = &quot;pct_hs18_24&quot;))) %&gt;% 
   group_by(county, covariate) %&gt;% 
   summarize(value = sum(value, na.rm = TRUE)) %&gt;% 
   spread(covariate, value)</code></pre>

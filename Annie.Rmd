@@ -9,7 +9,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(psych)
-library(MASS)
 ```
 
 
@@ -17,12 +16,13 @@ library(MASS)
 # load the data:
 cancer_df <- read_csv("./data/Cancer_Registry.csv") %>% 
   janitor::clean_names() %>% 
-  separate(geography, into = c("county", "state"), sep = ", ")
-  #select(target_death_rate, target_death_rate, med_income, poverty_percent, median_age,
-         #median_age_male, median_age_female, state, pct_no_hs18_24,
-         #pct_hs18_24, pct_some_col18_24, pct_bach_deg18_24, pct_hs25_over,
-         #pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over,
-         #pct_white, pct_black, pct_asian, pct_other_race )
+  separate(geography, into = c("county", "state"), sep = ", ") %>% 
+  select(target_death_rate, target_death_rate, med_income, poverty_percent, median_age,
+         median_age_male, median_age_female, county, state, pct_no_hs18_24,
+         pct_hs18_24,pct_bach_deg18_24, pct_hs25_over,
+         pct_bach_deg25_over, pct_unemployed16_over,
+         pct_white, pct_black, pct_asian, pct_other_race) %>% 
+  na.omit() 
   
   
 # because the varibale of pct_some_col18_24, pct_employed16_over has many NAs, so I decide to delete the two varibale. The total has 18 varibales at the beginning. 
@@ -87,6 +87,32 @@ knitr::kable(state_wholedes)
 
 
 ```{r}
+cancer_df %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
 
+# we could find the  median_age, pct_asian, pct_bach_deg18_24, pct_black, pct_other_race do not have normal distribution, need to transform 
+
+log_cancer <- cancer_df %>% 
+  mutate(median_age = log(median_age),
+       pct_asian = log(pct_asian),
+       pct_bach_deg18_24 = log(pct_bach_deg18_24),
+       pct_black = log(pct_black),
+       pct_other_race = log (pct_other_race)) %>% 
+data.frame()
+
+# check the distribution again
+log_cancer %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+```
+
+```{r}
 ```
 

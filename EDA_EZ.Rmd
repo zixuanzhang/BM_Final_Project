@@ -50,7 +50,8 @@ About this data:
 
 ## Look at the distribution
 
-plot all variables
+plot all variables:
+
 ```{r}
 cancer %>%
   keep(is.numeric) %>% 
@@ -58,7 +59,11 @@ cancer %>%
   ggplot(aes(value)) +
     facet_wrap(~ key, scales = "free") +
     geom_histogram()
+```
 
+"income":
+
+```{r}
 quantile(cancer$med_income, probs = seq(0,1,0.1))
   
 anyNA(cancer$med_income) # no NA
@@ -67,9 +72,9 @@ anyNA(cancer$med_income) # no NA
 cancer_new <- cancer %>% mutate(income1 = ifelse(med_income < 35000, 1,0),
                   income2 = ifelse(med_income >= 35000 & med_income < 41999, 1,0),
                   income3 = ifelse(med_income >= 42000 & med_income < 51999, 1,0),
-                  income4 = ifelse(med_income >= 52000 & med_income < 58999, 1,0),
-                  income5 = ifelse(med_income >= 58999, 1,0)) 
+                  income4 = ifelse(med_income >= 52000 & med_income < 58999, 1,0))
 str(cancer_new)
+
 cancer %>% 
    mutate(income_level = ifelse(med_income < 35000, "level1",
                                     ifelse(med_income >= 35000 & med_income < 41999, "level2",
@@ -81,7 +86,7 @@ cancer %>%
  
 # proportion of income level (across counties)
 cancer_new %>% 
-  gather(key = income_level, value = value, income1:income5) %>% 
+  gather(key = income_level, value = value, income1:income4) %>% 
   group_by(income_level) %>% 
   summarize(mean = mean(value))
 str(cancer_new) 
@@ -96,11 +101,44 @@ level 4: 52000 ~ 58999
 level 5: > 58999
 
 ```{r}
-all_variables <- lm(target_death_rate ~. , data = cancer_new[-c(7, 8, 9:12, 21:25)])
+all_variables <- lm(target_death_rate ~. , data = cancer_new[-c(2,7,8)])
 summary(all_variables)
 HH::vif(all_variables)
 
+cor(cancer_new[-c(7,8)]) > 0.6
+cor(cancer_new$poverty_percent, cancer_new$med_income)
 ```
 
+## variables selection
 
+```{r}
+cancer_new
 
+cor(cancer_new$median_age, cancer_new$median_age_male) # 0.13
+cor(cancer_new$median_age, cancer_new$median_age_female) # 0.12
+```
+
+remove variable pct_no_hs18_24 and remove NA
+
+```{r}
+cancer_new %>% select(-pct_some_col18_24) %>% summary
+
+cancer_rmNA <- cancer_new %>% select(-pct_some_col18_24) %>% na.omit()
+
+str(cancer_rmNA)
+
+all_var <- lm(target_death_rate ~. , data = cancer_new[-c(2,3,7,8)])
+summary(all_var)
+HH::vif(all_var)
+```
+
+Remove poverty percent because of its overlapping information with income.  
+Remove median income, use income level instead.
+
+```{r}
+cor(cancer_rmNA[9:15]) 
+```
+
+high correlation: 
+
+pct_hs25_over vs. pct_bach_deg25_over

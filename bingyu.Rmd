@@ -64,11 +64,9 @@ cancer_raw =
 str(cancer_raw)
 ```
 
-##Cancer by state
+##Check outcome
 ```{r}
-#cancer_state_all =
-  cancer_raw %>% 
-  #select(-county) %>% 
+cancer_raw %>% 
   group_by(state) %>% 
   ggplot(aes(x = state, y = target_death_rate)) +
   geom_boxplot()
@@ -90,11 +88,30 @@ str(cancer_raw)
 
 ##Variable selection
 
+**Check income distribution**
+```{r}
+cancer_raw %>% 
+  ggplot(aes(x = med_income)) +
+  geom_histogram()
+```
+
+* Income classfication by https://finance.zacks.com/lower-middle-upper-class-income-levels-9877.html
+1. Impoverished: $12,140 per person
+2. Middle class: $39,560 per person
+3. Upper-class: $72,126 per person
+
+* Income classfication by https://www.ncbi.nlm.nih.gov/pubmed/26930647
+Low income was defined as the lowest quartile of incomes (<$35,000)
+
 **By county**
 ```{r}
 cancer_county =
   cancer_raw %>% 
-  select(target_death_rate, county, incidence_rate, med_income, poverty_percent, median_age:median_age_female, pct_no_hs18_24:pct_other_race)
+  select(target_death_rate, county, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_other_race) %>% 
+  gather(key = covariate, value = value, -county) %>% 
+  mutate(covariate = str_replace_all(covariate, c("pct_no_hs18_24" = "pct_hs", "pct_hs18_24" = "pct_hs", "pct_hs25_over" = "pct_hs", "pct_bach_deg18_24" = "pct_col", "pct_bach_deg25_over" = "pct_col"))) %>% 
+  group_by(county, covariate) %>% 
+  nest()
 ```
 
 **By state**

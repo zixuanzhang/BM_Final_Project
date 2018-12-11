@@ -276,7 +276,8 @@ $(document).ready(function () {
   gather(key = covariate, value = value, -county) %&gt;% 
   mutate(covariate = str_replace_all(covariate, c(&quot;pct_no_hs18_24&quot; = &quot;pct_hs&quot;, &quot;pct_hs18_24&quot; = &quot;pct_hs&quot;, &quot;pct_hs25_over&quot; = &quot;pct_hs&quot;, &quot;pct_bach_deg18_24&quot; = &quot;pct_col&quot;, &quot;pct_bach_deg25_over&quot; = &quot;pct_col&quot;))) %&gt;% 
   group_by(county, covariate) %&gt;% 
-  nest()</code></pre>
+  summarize(value = sum(value, na.rm = TRUE)) %&gt;% 
+  spread(covariate, value)</code></pre>
 <p><strong>By state</strong></p>
 <pre class="r"><code>cancer_state =
   cancer_raw %&gt;% 

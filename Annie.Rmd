@@ -1,0 +1,92 @@
+---
+title: "Annie_doc"
+author: "Annie Yu xy2404"
+date: "12/10/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(psych)
+library(MASS)
+```
+
+
+```{r}
+# load the data:
+cancer_df <- read_csv("./data/Cancer_Registry.csv") %>% 
+  janitor::clean_names() %>% 
+  separate(geography, into = c("county", "state"), sep = ", ")
+  #select(target_death_rate, target_death_rate, med_income, poverty_percent, median_age,
+         #median_age_male, median_age_female, state, pct_no_hs18_24,
+         #pct_hs18_24, pct_some_col18_24, pct_bach_deg18_24, pct_hs25_over,
+         #pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over,
+         #pct_white, pct_black, pct_asian, pct_other_race )
+  
+  
+# because the varibale of pct_some_col18_24, pct_employed16_over has many NAs, so I decide to delete the two varibale. The total has 18 varibales at the beginning. 
+  
+```
+
+
+The discriptive statistics are shown below.
+```{r}
+state_summary = function(x){
+mean = mean(x)
+max = max(x)
+min = min(x)
+median = median(x)
+var = var(x)
+sd = sd(x) 
+sample_size=length(x)-sum(is.na(x))
+tibble(mean, max, min, median, var, sd, sample_size) 
+} 
+
+df_target_death_rate <-state_summary(cancer_df$target_death_rate)
+df_med_income <-state_summary(cancer_df$med_income) 
+df_poverty_percent<-state_summary(cancer_df$poverty_percent) 
+df_median_age<-state_summary(cancer_df$median_age) 
+df_median_agemale<-state_summary(cancer_df$median_age_male) 
+df_median_agefemale<-state_summary(cancer_df$median_age_female)
+df_pct_no_hs18_24 <-state_summary(cancer_df$pct_no_hs18_24)
+df_pct_hs18_24 <-state_summary(cancer_df$pct_hs18_24) 
+df_pct_bach_deg18_24<-state_summary(cancer_df$pct_bach_deg18_24) 
+df_pct_hs25_over<-state_summary(cancer_df$pct_hs25_over) 
+df_pct_bach_deg25_over<-state_summary(cancer_df$pct_bach_deg25_over) 
+df_pct_unemployed16_over<-state_summary(cancer_df$pct_unemployed16_over) 
+df_pct_white<-state_summary(cancer_df$pct_white)
+df_pct_black<-state_summary(cancer_df$pct_black) 
+df_pct_asian<-state_summary(cancer_df$pct_asian)
+df_pct_other_race<-state_summary(cancer_df$pct_other_race)
+
+
+state_des <- bind_rows(df_target_death_rate, 
+                       df_med_income, 
+                       df_poverty_percent, 
+                       df_median_age,
+                       df_median_agemale,
+                       df_median_agefemale,
+                       df_pct_no_hs18_24,
+                       df_pct_hs18_24,
+                       df_pct_bach_deg18_24, 
+                       df_pct_hs25_over, 
+                       df_pct_bach_deg25_over,
+                       df_pct_unemployed16_over, 
+                       df_pct_white,
+                       df_pct_black, 
+                       df_pct_asian,
+                       df_pct_other_race) 
+variable<- c("target_death_rate", "med_income", "poverty_percent", "median_age", "median_agemale", "median_agefemale", "pct_no_hs18_24", "pct_hs18_24", "pct_bach_deg18_24", "pct_hs25_over", " df_pct_bach_deg25_over", "pct_unemployed16_over", "pct_white", "pct_black", "pct_asian", "pct_other_race")
+
+state_wholedes <- cbind(variable, state_des) 
+
+knitr::kable(state_wholedes)
+```
+
+
+
+```{r}
+
+```
+

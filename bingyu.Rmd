@@ -145,7 +145,7 @@ cancer_state =
 
 ```
 
-##Model building
+##Model Building
 
 ###Automatic Procedures
 
@@ -162,5 +162,11 @@ summary(fit_all)
 
 ```{r}
 step(fit_all, direction = 'backward') #select by AIC
+```
+
+##Model Validation
+
+```{r}
+
 ```
 

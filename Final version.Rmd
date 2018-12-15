@@ -1,0 +1,183 @@
+---
+title: "Final Project"
+author: "Justin Hsie, Bingyu Sun, Eleanor Zhang, Annie Yu"
+date: "12/15/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(multcomp)
+library(faraway)
+library(dplyr)
+library(patchwork)
+library("leaps")
+library(caret)
+library(glmnet)
+library(patchwork)
+library(broom)
+library(modelr)
+library(olsrr)
+```
+
+##Data Import
+```{r, message=FALSE}
+cancer_raw =
+  read_csv("./data/Cancer_Registry.csv") %>% 
+  janitor::clean_names() %>% 
+  dplyr::select(target_death_rate, geography, everything()) %>% 
+  separate(geography, into = c("county", "state"), sep = ",")
+```
+
+## Data varibale dictionary:
+
+* **target_death_rate:** mean per capita (100,000) cancer mortalities (a)
+* **avg_ann_count:** mean number of reported cases of cancer diagnosed annually (a)
+* **avg_deaths_per_year:** mean number of reported mortalities due to cancer (a)
+* **incidence_rate:** mean per capita (100,000) cancer diagnoses (a)
+* **med_income:** median income per county (b)
+* **pop_est2015:** population of county (b)
+* **poverty_percent:** percent of population in poverty (b)
+* **study_per_cap** per capita number of cancer-related clinical trials per county (a)
+* **binned_inc:** median income per capita binned by decile (b)
+* **median_age:** median age of county residents (b)
+* **median_age_male:** median age of male county residents (b)
+* **median_age_female:** median age of female county residents (b)
+* **geography:** county name (b)
+* **avg_household_size:** mean household size of county (b)
+* **percent_married:** percent of county residents who are married (b)
+* **pct_no_hs18_24:** percent of county residents ages 18-24 highest education attained: less than high school (b) 
+* **pct_hs18_24:** percent of county residents ages 18-24 highest education attained: high school diploma (b)
+* **pct_some_col18_24:** percent of county residents ages 18-24 highest education attained: some college (b) 
+* **pct_bach_deg18_24:** percent of county residents ages 18-24 highest education attained: bachelor's degree (b)
+* **pct_hs25_over:** percent of county residents ages 25 and over highest education attained: high school diploma (b)              
+* **pct_bach_deg25_over:** percent of county residents ages 25 and over highest education attained: bachelor's degree (b)
+* **pct_employed16_over:** percent of county residents ages 16 and over employed (b)        
+* **pct_unemployed16_over:** percent of county residents ages 16 and over unemployed (b)     
+* **pct_private_coverage:** percent of county residents with private health coverage (b)
+* **pct_private_coverage_alone:** percent of county residents with private health coverage alone (no public assistance) (b) 
+* **pct_emp_priv_coverage:** percent of county residents with employee-provided private health coverage (b)     
+* **pct_public_coverage:** percent of county residents with government-provided health coverage (b)
+* **pct_public_coverage_alone:** percent of county residents with government-provided health coverage alone (b)  
+* **pct_white:** percent of county residents who identify as White (b)           
+* **pct_black:** percent of county residents who identify as Black (b)
+* **pct_asian:** percent of county residents who identify as Asian (b)                  
+* **pct_other_race:** percent of county residents who identify in a category which is not White, Black, or Asian (b)          
+* **pct_married_households:** percent of married households (b)
+* **birth_rate:** number of live births relative to number of women in county (b)
+
+## Look at the distribution of all varibales:
+```{r}
+cancer_raw %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram(bins = 30)
+```
+
+## Choose variables:
+```{r}
+cancer_county =
+  cancer_raw %>% 
+  dplyr::select(target_death_rate, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_married_households) %>% 
+  dplyr::select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over, -percent_married) %>% 
+  mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
+         pct_above_hs18_24 = 100 - pct_upto_hs18_24,
+         pct_with_coverage = pct_private_coverage + pct_public_coverage_alone,
+         income_cat = ifelse(med_income < 35000, 0, 1)) %>% 
+  dplyr::select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %>% 
+  na.omit
+```
+
+## Check correlation and distribution:
+```{r}
+cor(cancer_county) %>% 
+  knitr::kable()
+
+cancer_county %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram(bins = 30)
+```
+
+##The discriptive statistics:
+
+```{r}
+state_summary = function(x){
+mean = mean(x)
+max = max(x)
+min = min(x)
+median = median(x)
+var = var(x)
+sd = sd(x) 
+sample_size=length(x)-sum(is.na(x))
+tibble(mean, max, min, median, var, sd, sample_size) 
+} 
+
+df_target_death_rate <-state_summary(cancer_county$target_death_rate)
+df_incidence_rate <-state_summary(cancer_county$incidence_rate)
+df_med_income <-state_summary(cancer_county$med_income) 
+df_poverty_percent<-state_summary(cancer_county$poverty_percent) 
+df_median_age<-state_summary(cancer_county$median_age) 
+df_median_agemale<-state_summary(cancer_county$median_age_male) 
+df_median_agefemale<-state_summary(cancer_county$median_age_female)
+df_avg_household_size<-state_summary(cancer_county$avg_household_size)
+df_pct_unemployed16_over<-state_summary(cancer_county$pct_unemployed16_over) 
+df_pct_white<-state_summary(cancer_county$pct_white)
+df_pct_black<-state_summary(cancer_county$pct_black) 
+df_pct_asian<-state_summary(cancer_county$pct_asian)
+df_pct_other_race<-state_summary(cancer_county$pct_other_race)
+df_pct_married_households<-state_summary(cancer_county$pct_married_households)
+df_pct_upto_hs18_24<-state_summary(cancer_county$pct_upto_hs18_24) 
+df_pct_with_coverage<-state_summary(cancer_county$pct_with_coverage)
+
+state_des <- bind_rows(df_target_death_rate,
+                       df_incidence_rate,
+                       df_med_income, 
+                       df_poverty_percent, 
+                       df_median_age,
+                       df_median_agemale,
+                       df_median_agefemale,
+                       df_avg_household_size,
+                       df_pct_unemployed16_over, 
+                       df_pct_white,
+                       df_pct_black, 
+                       df_pct_asian,
+                       df_pct_other_race,
+                       df_pct_married_households,
+                       df_pct_upto_hs18_24,
+                       df_pct_with_coverage) 
+variable<- c("target_death_rate", "incidence_rate","med_income", "poverty_percent", "median_age", "median_agemale", "median_agefemale", "avg_household_size","pct_unemployed16_over", "pct_white", "pct_black", "pct_asian", "pct_other_race", "pct_married_households", "pct_upto_hs18_24", "pct_with_coverage")
+
+state_wholedes <- cbind(variable, state_des) 
+
+knitr::kable(state_wholedes)
+```
+
+##Model building:
+```{r}
+# building full model
+full_model <- lm(target_death_rate ~., data = cancer_county)
+summary(full_model)
+
+# Using the stepwise 
+stepwise_model <- stepAIC(full_model, direction = "both", trace = FALSE)
+summary(stepwise_model)
+
+vif(stepwise_model) 
+
+# Cp and AIC and Adjusted R2
+
+model_dig <- glance(stepwise_model) %>% 
+  as.data.frame() %>% 
+  dplyr::select(adj.r.squared, sigma, p.value, AIC, BIC) %>% 
+  rename(RES = sigma) %>% 
+  mutate(cp = ols_mallows_cp(stepwise_model, full_model))
+
+model_dig
+```
+

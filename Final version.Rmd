@@ -1,6 +1,6 @@
 ---
 title: "Final Project"
-author: "Justine Hsie, Bingyu Sun, Eleanor Zhang, Annie Yu"
+author: "Justin Hsie, Bingyu Sun, Eleanor Zhang, Annie Yu"
 date: "12/15/2018"
 output: pdf_document
 ---
@@ -91,4 +91,93 @@ cancer_county =
   na.omit
 ```
 
+## Check correlation and distribution:
+```{r}
+cor(cancer_county) %>% 
+  knitr::kable()
+
+cancer_county %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram(bins = 30)
+```
+
+##The discriptive statistics:
+
+```{r}
+state_summary = function(x){
+mean = mean(x)
+max = max(x)
+min = min(x)
+median = median(x)
+var = var(x)
+sd = sd(x) 
+sample_size=length(x)-sum(is.na(x))
+tibble(mean, max, min, median, var, sd, sample_size) 
+} 
+
+df_target_death_rate <-state_summary(cancer_county$target_death_rate)
+df_incidence_rate <-state_summary(cancer_county$incidence_rate)
+df_med_income <-state_summary(cancer_county$med_income) 
+df_poverty_percent<-state_summary(cancer_county$poverty_percent) 
+df_median_age<-state_summary(cancer_county$median_age) 
+df_median_agemale<-state_summary(cancer_county$median_age_male) 
+df_median_agefemale<-state_summary(cancer_county$median_age_female)
+df_avg_household_size<-state_summary(cancer_county$avg_household_size)
+df_pct_unemployed16_over<-state_summary(cancer_county$pct_unemployed16_over) 
+df_pct_white<-state_summary(cancer_county$pct_white)
+df_pct_black<-state_summary(cancer_county$pct_black) 
+df_pct_asian<-state_summary(cancer_county$pct_asian)
+df_pct_other_race<-state_summary(cancer_county$pct_other_race)
+df_pct_married_households<-state_summary(cancer_county$pct_married_households)
+df_pct_upto_hs18_24<-state_summary(cancer_county$pct_upto_hs18_24) 
+df_pct_with_coverage<-state_summary(cancer_county$pct_with_coverage)
+
+state_des <- bind_rows(df_target_death_rate,
+                       df_incidence_rate,
+                       df_med_income, 
+                       df_poverty_percent, 
+                       df_median_age,
+                       df_median_agemale,
+                       df_median_agefemale,
+                       df_avg_household_size,
+                       df_pct_unemployed16_over, 
+                       df_pct_white,
+                       df_pct_black, 
+                       df_pct_asian,
+                       df_pct_other_race,
+                       df_pct_married_households,
+                       df_pct_upto_hs18_24,
+                       df_pct_with_coverage) 
+variable<- c("target_death_rate", "incidence_rate","med_income", "poverty_percent", "median_age", "median_agemale", "median_agefemale", "avg_household_size","pct_unemployed16_over", "pct_white", "pct_black", "pct_asian", "pct_other_race", "pct_married_households", "pct_upto_hs18_24", "pct_with_coverage")
+
+state_wholedes <- cbind(variable, state_des) 
+
+knitr::kable(state_wholedes)
+```
+
+##Model building:
+```{r}
+# building full model
+full_model <- lm(target_death_rate ~., data = cancer_county)
+summary(full_model)
+
+# Using the stepwise 
+stepwise_model <- stepAIC(full_model, direction = "both", trace = FALSE)
+summary(stepwise_model)
+
+vif(stepwise_model) 
+
+# Cp and AIC and Adjusted R2
+
+model_dig <- glance(stepwise_model) %>% 
+  as.data.frame() %>% 
+  dplyr::select(adj.r.squared, sigma, p.value, AIC, BIC) %>% 
+  rename(RES = sigma) %>% 
+  mutate(cp = ols_mallows_cp(stepwise_model, full_model))
+
+model_dig
+```
 

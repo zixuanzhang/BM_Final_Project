@@ -29,7 +29,7 @@ About this data:
 
 *   NA variables: PctSomeCol18_24(2285/), PctEmployed16_Over(152/), PctPrivateCoverageAlone(609)
 *   3047 observations, 34 variables, we selected 20 variables (after separating county and state name)
-*   18-24 ages information are not intact so we will not use those data
+*   >25 aged information are not intact so we will not use those data
 
 Look at the distribution of all variables (histogram)
 
@@ -44,7 +44,7 @@ cancer_data %>%
 
 Select variables
 
-```{r select variables}
+```{r select variables, eval=FALSE}
 cancer <- cancer_data %>% 
   janitor::clean_names() %>% 
   separate(geography, into = c("county", "state"), sep = ", ") %>% # 20 variables
@@ -64,23 +64,39 @@ cancer <- cancer_data %>%
   mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
          pct_above_hs18_24 = 100 - pct_upto_hs18_24) %>% 
   select(-pct_no_hs18_24, -pct_hs18_24, -pct_some_col18_24, -pct_bach_deg18_24)
-summary(cancer)
-str(cancer)
-View(cancer)
+```
+
+Select variables
+
+```{r}
+cancer_county <- cancer_data %>% 
+  janitor::clean_names() %>% 
+  separate(geography, into = c("county", "state"), sep = ", ") %>% 
+  select(target_death_rate, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_married_households) %>% 
+  select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over, -percent_married) %>% 
+  mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
+         pct_above_hs18_24 = 100 - pct_upto_hs18_24,
+         pct_with_coverage = pct_private_coverage + pct_public_coverage_alone,
+         income_level = ifelse(med_income < 35000, 0, 1)) %>% 
+  select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %>% 
+  na.omit
+
+summary(cancer_county)
+str(cancer_county)
+View(cancer_county)
 ```
 
 check NA
 
 ```{r}
-anyNA(cancer) # No NA involved
-str(cancer)
+anyNA(cancer_county) # No NA involved
 ```
 
 
 Look at distribution of selected variables:
 
 ```{r variables distribution}
-cancer %>%
+cancer_county %>%
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -88,34 +104,45 @@ cancer %>%
     geom_histogram()
 ```
 
-Income level might need adjusted!!
 
 plot pairs of variables
-
-```{r correlation of variables}
-pairs(cancer[-c(7,8)]) # remove strings county and state
-abs(cor(cancer[-c(7,8)])) > 0.6 # colinearity 
-```
-
-## Model selection (with income unchanged)
-
-create dataset for modeling
-
-```{r}
-cancer_county <- cancer %>% select(-county, -state, -pct_above_hs18_24, -median_age)
-cancer_county
-```
-
-look at variables
 
 ```{r}
 pairs(cancer_county)
 ```
 
+
+## Model selection (with income levels)
+
+### data variables description
+
+create dataset for modeling
+
+```{r}
+cancer_county_model <- cancer_county %>% select(-med_income)
+names(cancer_county_model)
+```
+
+ [1] "target_death_rate"      
+ [2] "incidence_rate"         
+ [3]  "med_income"            
+ [4] "poverty_percent"        "median_age"             "median_age_male"       
+ [7] "median_age_female"      "avg_household_size"     "pct_unemployed16_over" 
+[10] "pct_white"              "pct_black"              "pct_asian"             
+[13] "pct_other_race"         "pct_married_households" "pct_upto_hs18_24"      
+[16] "pct_with_coverage"      "income_level"
+
+
+look at variables
+
+```{r}
+pairs(cancer_county_model)
+```
+
 all variables
 
 ```{r}
-all_var <- lm(target_death_rate ~. , data = cancer_county)
+all_var <- lm(target_death_rate ~. , data = cancer_county_model)
 summary(all_var)
 HH::vif(all_var)
 ```
@@ -130,9 +157,10 @@ step(all_var, direction='backward')
 backward model
 
 ```{r}
-back_model <- lm(target_death_rate ~ med_income + poverty_percent + 
-    median_age_male + pct_unemployed16_over + pct_other_race + 
-    incidence_rate + pct_upto_hs18_24, data = cancer_county)
+back_model <- lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage + income_level, data = cancer_county_model)
 summary(back_model)
 plot(back_model)
 HH::vif(back_model)
@@ -140,6 +168,10 @@ MASS::boxcox(back_model)
 ```
 
 
-## Model Selection (with income levels)
+```{r}
+cancer_county_model %>% 
+  group_by(income_level) %>% 
+  ggplot(aes(x = poverty_percent, y = target_death_rate)) + geom_point() + geom_smooth() + facet_grid(~income_level)
+```
 
 

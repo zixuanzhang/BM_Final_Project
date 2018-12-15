@@ -225,7 +225,7 @@ mse_result = cross_result %>%
   
 mse_result 
 
-#CV
+#LOOCV
 glm.fit = glm(target_death_rate ~ incidence_rate + poverty_percent + 
     median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
     pct_other_race + pct_married_households + pct_upto_hs18_24 + 

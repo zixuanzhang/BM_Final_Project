@@ -38,7 +38,7 @@ cancer <- cancer_data %>%
          pct_no_hs18_24, pct_hs18_24, # age 18-24, percent of highest diploma less than/is high school 
          pct_some_col18_24, pct_bach_deg18_24, # percent of highest diploma:some colledge/bachelor
          pct_hs25_over, pct_bach_deg25_over, # >age 25, highest diploma: high school/bachelor
-         pct_employed16_over, pct_unemployed16_over, # >age 16, percent of employeed / unemployeed
+         pct_employed16_over, pct_unemployed16_over,pct_public_coverage, 
          pct_white, pct_black, pct_asian, pct_other_race) # percent of race
 str(cancer)
 ```
@@ -127,7 +127,19 @@ cancer_rmNA <- cancer_new %>% select(-pct_some_col18_24) %>% na.omit()
 
 str(cancer_rmNA)
 
-all_var <- lm(target_death_rate ~. , data = cancer_new[-c(2,3,7,8)])
+all_var <- lm(target_death_rate ~. , data = cancer_rmNA[-c(2, # med_income
+                                                          3, # poverty percent
+                                                          7, # county
+                                                          8, # state
+                                                          9, # pct_no_hs18_24
+                                                          10, # pct_hs18_24
+                                                          11, # pct_some_col18_24
+                                                          #12, # "pct_bach_deg18_24
+                                                          13, # pct_hs25_over
+                                                          #14, # pct_bach_deg25_over
+                                                          #15, # pct_employed16_over
+                                                          16)]) # pct_unemployed16_over
+                                                          
 summary(all_var)
 HH::vif(all_var)
 ```
@@ -142,3 +154,91 @@ cor(cancer_rmNA[9:15])
 high correlation: 
 
 pct_hs25_over vs. pct_bach_deg25_over
+
+
+#### model selection
+
+```{r}
+cancer_model <- cancer_rmNA %>% 
+  select(-state, - county, -med_income)
+cancer_model
+
+multi.fit <- lm(target_death_rate~., data = cancer_model)
+step(multi.fit, direction='both')
+step(multi.fit, direction='backward')
+HH::vif(multi.fit)
+```
+
+Model selected by backward elimination:
+
+```{r}
+best_backward <- lm(target_death_rate ~ poverty_percent + median_age_male + 
+    pct_no_hs18_24 + pct_hs18_24 + pct_hs25_over + pct_bach_deg25_over + 
+    pct_unemployed16_over + pct_black + pct_other_race + income1 + 
+    income2, data = cancer_model)
+
+summary(best_backward)
+plot(best_backward)
+```
+
+categorize into two levels of income:
+
+```{r}
+cancer_new <- cancer %>% mutate(income_level = ifelse(med_income < 42000, 1,0))
+cancer_rmNA <- cancer_new %>% select(-pct_some_col18_24) %>% na.omit()
+
+cancer_model <- cancer_rmNA %>% 
+  select(-state, - county, -med_income)
+cancer_model
+
+multi.fit <- lm(target_death_rate~., data = cancer_model)
+summary(multi.fit)
+step(multi.fit, direction='both')
+step(multi.fit, direction='backward') # two methods same result
+HH::vif(multi.fit)
+
+best_backward <- lm(target_death_rate ~ median_age_male + median_age_female + 
+    pct_no_hs18_24 + pct_hs18_24 + pct_bach_deg18_24 + pct_hs25_over + 
+    pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage + 
+    pct_black + pct_other_race + income_level, data = cancer_model) 
+
+summary(best_backward)
+plot(best_backward) # 1161， 1301, 1008
+cancer_model[c(1161,1301,1008),]
+HH::vif(best_backward)
+```
+
+if remove observation 1161, 1301
+
+```{r}
+cancer_model_rm <- cancer_model[-c(1161,1301, 1008),]
+
+best_backward2 <- lm(target_death_rate ~ median_age_male + median_age_female + 
+    pct_no_hs18_24 + pct_hs18_24 + pct_bach_deg18_24 + pct_hs25_over + 
+    pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage + 
+    pct_black + pct_other_race + income_level, data = cancer_model_rm)
+summary(best_backward2)
+HH::vif(best_backward2)
+plot(best_backward2)
+```
+
+Criterion based
+
+```{r}
+library(leaps)
+cancer_model
+b <- regsubsets(target_death_rate ~ ., data=cancer_model, nvmax = 16)
+summary(b) # predictor size up to 8
+```
+
+#### if use original median income
+
+```{r}
+#cancer_model <- cancer_rmNA %>% 
+  #select(-state, - county, -income_level)
+#cancer_model
+```
+
+
+
+## Boostrap (for predictive capability)

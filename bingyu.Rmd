@@ -116,7 +116,8 @@ cancer_county =
   select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over, -percent_married) %>% 
   mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
          pct_above_hs18_24 = 100 - pct_upto_hs18_24,
-         pct_with_coverage = pct_private_coverage + pct_public_coverage_alone) %>% 
+         pct_with_coverage = pct_private_coverage + pct_public_coverage_alone,
+         income_cat = ifelse(med_income < 35000, 0, 1)) %>% 
   select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %>% 
   na.omit
 ```
@@ -126,13 +127,22 @@ cancer_county =
 cancer_state =
   cancer_raw %>% 
   select(target_death_rate, state, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_married_households) %>% 
-  select(-pct_hs25_over, -pct_bach_deg25_over) %>% 
+  select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over, -percent_married) %>% 
   mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
          pct_above_hs18_24 = 100 - pct_upto_hs18_24,
-         pct_minority = pct_black + pct_asian + pct_other_race) %>% 
-  select(-(pct_no_hs18_24:pct_bach_deg18_24)) %>% 
+         pct_with_coverage = pct_private_coverage + pct_public_coverage_alone,
+         income_cat = ifelse(med_income < 35000, 0, 1)) %>% 
+  select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %>% 
+  na.omit() %>% 
   group_by(state) %>% 
-  summarize_all(median)
+  summarize_all(median) %>% 
+  select(-state)
+```
+
+**Check correlation**
+
+```{r}
+
 ```
 
 ##Model building
@@ -153,3 +163,4 @@ summary(fit_all)
 ```{r}
 step(fit_all, direction = 'backward') #select by AIC
 ```
+

@@ -276,20 +276,25 @@ $(document).ready(function () {
   select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over, -percent_married) %&gt;% 
   mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
          pct_above_hs18_24 = 100 - pct_upto_hs18_24,
-         pct_with_coverage = pct_private_coverage + pct_public_coverage_alone) %&gt;% 
+         pct_with_coverage = pct_private_coverage + pct_public_coverage_alone,
+         income_cat = ifelse(med_income &lt; 35000, 0, 1)) %&gt;% 
   select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %&gt;% 
   na.omit</code></pre>
 <p><strong>By state</strong></p>
 <pre class="r"><code>cancer_state =
   cancer_raw %&gt;% 
   select(target_death_rate, state, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_married_households) %&gt;% 
-  select(-pct_hs25_over, -pct_bach_deg25_over) %&gt;% 
+  select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over, -percent_married) %&gt;% 
   mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
          pct_above_hs18_24 = 100 - pct_upto_hs18_24,
-         pct_minority = pct_black + pct_asian + pct_other_race) %&gt;% 
-  select(-(pct_no_hs18_24:pct_bach_deg18_24)) %&gt;% 
+         pct_with_coverage = pct_private_coverage + pct_public_coverage_alone,
+         income_cat = ifelse(med_income &lt; 35000, 0, 1)) %&gt;% 
+  select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %&gt;% 
+  na.omit() %&gt;% 
   group_by(state) %&gt;% 
-  summarize_all(median)</code></pre>
+  summarize_all(median) %&gt;% 
+  select(-state)</code></pre>
+<p><strong>Check correlation</strong></p>
 </div>
 <div id="model-building" class="section level2">
 <h2>Model building</h2>
@@ -308,225 +313,237 @@ summary(fit_all)</code></pre>
 ## 
 ## Residuals:
 ##      Min       1Q   Median       3Q      Max 
-## -132.823  -11.677   -0.179   11.766  129.104 
+## -132.811  -11.710   -0.008   11.850  129.454 
 ## 
 ## Coefficients:
 ##                          Estimate Std. Error t value Pr(&gt;|t|)    
-## (Intercept)             9.030e+01  1.271e+01   7.106 1.48e-12 ***
-## incidence_rate          2.189e-01  7.496e-03  29.196  &lt; 2e-16 ***
-## med_income             -4.628e-04  6.736e-05  -6.871 7.72e-12 ***
-## poverty_percent         5.270e-01  1.433e-01   3.679 0.000239 ***
-## median_age             -4.507e-03  8.339e-03  -0.540 0.588944    
-## median_age_male        -2.025e-01  2.104e-01  -0.962 0.336022    
-## median_age_female      -1.194e-01  2.090e-01  -0.571 0.567802    
-## avg_household_size      6.186e-01  1.006e+00   0.615 0.538667    
-## pct_unemployed16_over   8.427e-01  1.527e-01   5.520 3.67e-08 ***
-## pct_white               4.369e-03  5.873e-02   0.074 0.940696    
-## pct_black               6.342e-03  5.642e-02   0.112 0.910502    
-## pct_asian              -1.896e-01  1.876e-01  -1.011 0.312306    
-## pct_other_race         -9.264e-01  1.237e-01  -7.487 9.20e-14 ***
-## pct_married_households -8.165e-02  8.931e-02  -0.914 0.360709    
-## pct_upto_hs18_24        3.847e-01  3.802e-02  10.121  &lt; 2e-16 ***
-## pct_with_coverage      -7.652e-02  1.024e-01  -0.747 0.454900    
+## (Intercept)             1.030e+02  1.320e+01   7.808 7.96e-15 ***
+## incidence_rate          2.195e-01  7.485e-03  29.328  &lt; 2e-16 ***
+## med_income             -4.878e-04  6.762e-05  -7.215 6.81e-13 ***
+## poverty_percent         3.101e-01  1.559e-01   1.989 0.046756 *  
+## median_age             -4.321e-03  8.324e-03  -0.519 0.603763    
+## median_age_male        -2.500e-01  2.105e-01  -1.188 0.235102    
+## median_age_female      -1.204e-01  2.086e-01  -0.577 0.563802    
+## avg_household_size      5.976e-01  1.004e+00   0.595 0.551774    
+## pct_unemployed16_over   8.448e-01  1.524e-01   5.544 3.22e-08 ***
+## pct_white              -5.202e-03  5.868e-02  -0.089 0.929369    
+## pct_black              -1.164e-02  5.655e-02  -0.206 0.836891    
+## pct_asian              -1.954e-01  1.873e-01  -1.043 0.296831    
+## pct_other_race         -9.198e-01  1.235e-01  -7.446 1.24e-13 ***
+## pct_married_households -9.767e-02  8.927e-02  -1.094 0.273994    
+## pct_upto_hs18_24        3.827e-01  3.795e-02  10.085  &lt; 2e-16 ***
+## pct_with_coverage      -7.372e-02  1.022e-01  -0.721 0.470747    
+## income_cat             -5.252e+00  1.503e+00  -3.493 0.000484 ***
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ## 
-## Residual standard error: 20.63 on 3031 degrees of freedom
-## Multiple R-squared:  0.4499, Adjusted R-squared:  0.4472 
-## F-statistic: 165.2 on 15 and 3031 DF,  p-value: &lt; 2.2e-16</code></pre>
+## Residual standard error: 20.6 on 3030 degrees of freedom
+## Multiple R-squared:  0.4521, Adjusted R-squared:  0.4492 
+## F-statistic: 156.3 on 16 and 3030 DF,  p-value: &lt; 2.2e-16</code></pre>
 </div>
 <div id="stepwise" class="section level4">
 <h4>Stepwise</h4>
 <pre class="r"><code>step(fit_all, direction = 'backward') #select by AIC</code></pre>
-<pre><code>## Start:  AIC=18462.21
+<pre><code>## Start:  AIC=18451.96
 ## target_death_rate ~ incidence_rate + med_income + poverty_percent + 
 ##     median_age + median_age_male + median_age_female + avg_household_size + 
 ##     pct_unemployed16_over + pct_white + pct_black + pct_asian + 
 ##     pct_other_race + pct_married_households + pct_upto_hs18_24 + 
-##     pct_with_coverage
+##     pct_with_coverage + income_cat
 ## 
 ##                          Df Sum of Sq     RSS   AIC
-## - pct_white               1         2 1290518 18460
-## - pct_black               1         5 1290521 18460
-## - median_age              1       124 1290640 18460
-## - median_age_female       1       139 1290655 18460
-## - avg_household_size      1       161 1290677 18461
-## - pct_with_coverage       1       238 1290754 18461
-## - pct_married_households  1       356 1290872 18461
-## - median_age_male         1       394 1290910 18461
-## - pct_asian               1       435 1290951 18461
-## &lt;none&gt;                                1290516 18462
-## - poverty_percent         1      5762 1296278 18474
-## - pct_unemployed16_over   1     12974 1303490 18491
-## - med_income              1     20100 1310616 18507
-## - pct_other_race          1     23865 1314381 18516
-## - pct_upto_hs18_24        1     43613 1334128 18562
-## - incidence_rate          1    362936 1653452 19215
+## - pct_white               1         3 1285342 18450
+## - pct_black               1        18 1285357 18450
+## - median_age              1       114 1285453 18450
+## - median_age_female       1       141 1285480 18450
+## - avg_household_size      1       150 1285489 18450
+## - pct_with_coverage       1       221 1285560 18450
+## - pct_asian               1       462 1285801 18451
+## - pct_married_households  1       508 1285847 18451
+## - median_age_male         1       598 1285937 18451
+## &lt;none&gt;                                1285339 18452
+## - poverty_percent         1      1679 1287018 18454
+## - income_cat              1      5177 1290516 18462
+## - pct_unemployed16_over   1     13037 1298376 18481
+## - med_income              1     22080 1307419 18502
+## - pct_other_race          1     23521 1308860 18505
+## - pct_upto_hs18_24        1     43149 1328488 18551
+## - incidence_rate          1    364882 1650221 19211
 ## 
-## Step:  AIC=18460.21
+## Step:  AIC=18449.97
 ## target_death_rate ~ incidence_rate + med_income + poverty_percent + 
 ##     median_age + median_age_male + median_age_female + avg_household_size + 
 ##     pct_unemployed16_over + pct_black + pct_asian + pct_other_race + 
-##     pct_married_households + pct_upto_hs18_24 + pct_with_coverage
+##     pct_married_households + pct_upto_hs18_24 + pct_with_coverage + 
+##     income_cat
 ## 
 ##                          Df Sum of Sq     RSS   AIC
-## - pct_black               1         3 1290522 18458
-## - median_age              1       124 1290643 18458
-## - median_age_female       1       137 1290656 18458
-## - avg_household_size      1       159 1290677 18459
-## - pct_with_coverage       1       238 1290756 18459
-## - pct_married_households  1       367 1290885 18459
-## - median_age_male         1       394 1290912 18459
-## - pct_asian               1       519 1291038 18459
-## &lt;none&gt;                                1290518 18460
-## - poverty_percent         1      5765 1296283 18472
-## - pct_unemployed16_over   1     13087 1303605 18489
-## - med_income              1     20755 1311274 18507
-## - pct_other_race          1     25993 1316511 18519
-## - pct_upto_hs18_24        1     44382 1334900 18561
-## - incidence_rate          1    364406 1654924 19216
+## - pct_black               1        21 1285363 18448
+## - median_age              1       114 1285456 18448
+## - median_age_female       1       144 1285487 18448
+## - avg_household_size      1       156 1285498 18448
+## - pct_with_coverage       1       241 1285583 18448
+## - pct_asian               1       494 1285836 18449
+## - pct_married_households  1       571 1285913 18449
+## - median_age_male         1       599 1285941 18449
+## &lt;none&gt;                                1285342 18450
+## - poverty_percent         1      1696 1287038 18452
+## - income_cat              1      5176 1290518 18460
+## - pct_unemployed16_over   1     13232 1298575 18479
+## - med_income              1     22652 1307994 18501
+## - pct_other_race          1     25294 1310637 18507
+## - pct_upto_hs18_24        1     44115 1329457 18551
+## - incidence_rate          1    366157 1651499 19212
 ## 
-## Step:  AIC=18458.22
+## Step:  AIC=18448.01
 ## target_death_rate ~ incidence_rate + med_income + poverty_percent + 
 ##     median_age + median_age_male + median_age_female + avg_household_size + 
 ##     pct_unemployed16_over + pct_asian + pct_other_race + pct_married_households + 
-##     pct_upto_hs18_24 + pct_with_coverage
+##     pct_upto_hs18_24 + pct_with_coverage + income_cat
 ## 
 ##                          Df Sum of Sq     RSS   AIC
-## - median_age              1       124 1290646 18456
-## - median_age_female       1       134 1290656 18456
-## - avg_household_size      1       158 1290680 18457
-## - pct_with_coverage       1       238 1290760 18457
-## - median_age_male         1       420 1290942 18457
-## - pct_married_households  1       453 1290974 18457
-## - pct_asian               1       531 1291053 18458
-## &lt;none&gt;                                1290522 18458
-## - poverty_percent         1      6151 1296672 18471
-## - pct_unemployed16_over   1     13428 1303949 18488
-## - med_income              1     21992 1312513 18508
-## - pct_other_race          1     26306 1316827 18518
-## - pct_upto_hs18_24        1     44615 1335137 18560
-## - incidence_rate          1    364718 1655239 19215
+## - median_age              1       114 1285477 18446
+## - avg_household_size      1       157 1285520 18446
+## - median_age_female       1       167 1285530 18446
+## - pct_with_coverage       1       239 1285602 18447
+## - pct_asian               1       480 1285843 18447
+## - pct_married_households  1       571 1285934 18447
+## - median_age_male         1       578 1285941 18447
+## &lt;none&gt;                                1285363 18448
+## - poverty_percent         1      1683 1287045 18450
+## - income_cat              1      5159 1290522 18458
+## - pct_unemployed16_over   1     13362 1298725 18478
+## - med_income              1     24361 1309724 18503
+## - pct_other_race          1     25389 1310751 18506
+## - pct_upto_hs18_24        1     44171 1329534 18549
+## - incidence_rate          1    366295 1651658 19210
 ## 
-## Step:  AIC=18456.51
+## Step:  AIC=18446.29
 ## target_death_rate ~ incidence_rate + med_income + poverty_percent + 
 ##     median_age_male + median_age_female + avg_household_size + 
 ##     pct_unemployed16_over + pct_asian + pct_other_race + pct_married_households + 
-##     pct_upto_hs18_24 + pct_with_coverage
+##     pct_upto_hs18_24 + pct_with_coverage + income_cat
 ## 
 ##                          Df Sum of Sq     RSS   AIC
-## - median_age_female       1       138 1290784 18455
-## - avg_household_size      1       155 1290801 18455
-## - pct_with_coverage       1       232 1290877 18455
-## - median_age_male         1       435 1291081 18456
-## - pct_married_households  1       445 1291091 18456
-## - pct_asian               1       525 1291171 18456
-## &lt;none&gt;                                1290646 18456
-## - poverty_percent         1      6224 1296870 18469
-## - pct_unemployed16_over   1     13340 1303986 18486
-## - med_income              1     21979 1312625 18506
-## - pct_other_race          1     26324 1316970 18516
-## - pct_upto_hs18_24        1     44622 1335268 18558
-## - incidence_rate          1    364594 1655239 19213
+## - avg_household_size      1       154 1285631 18445
+## - median_age_female       1       171 1285648 18445
+## - pct_with_coverage       1       233 1285710 18445
+## - pct_asian               1       474 1285952 18445
+## - pct_married_households  1       563 1286040 18446
+## - median_age_male         1       595 1286073 18446
+## &lt;none&gt;                                1285477 18446
+## - poverty_percent         1      1711 1287189 18448
+## - income_cat              1      5169 1290646 18456
+## - pct_unemployed16_over   1     13279 1298757 18476
+## - med_income              1     24351 1309828 18502
+## - pct_other_race          1     25405 1310882 18504
+## - pct_upto_hs18_24        1     44177 1329654 18547
+## - incidence_rate          1    366181 1651658 19208
 ## 
-## Step:  AIC=18454.84
+## Step:  AIC=18444.65
 ## target_death_rate ~ incidence_rate + med_income + poverty_percent + 
-##     median_age_male + avg_household_size + pct_unemployed16_over + 
+##     median_age_male + median_age_female + pct_unemployed16_over + 
 ##     pct_asian + pct_other_race + pct_married_households + pct_upto_hs18_24 + 
-##     pct_with_coverage
+##     pct_with_coverage + income_cat
 ## 
 ##                          Df Sum of Sq     RSS   AIC
-## - avg_household_size      1       188 1290972 18453
-## - pct_with_coverage       1       286 1291070 18454
-## - pct_married_households  1       415 1291199 18454
-## - pct_asian               1       517 1291301 18454
-## &lt;none&gt;                                1290784 18455
-## - median_age_male         1      5197 1295981 18465
-## - poverty_percent         1      6192 1296977 18467
-## - pct_unemployed16_over   1     13395 1304179 18484
-## - med_income              1     21842 1312627 18504
-## - pct_other_race          1     26233 1317017 18514
-## - pct_upto_hs18_24        1     44840 1335625 18557
-## - incidence_rate          1    366095 1656879 19214
+## - median_age_female       1       208 1285839 18443
+## - pct_with_coverage       1       271 1285902 18443
+## - pct_asian               1       460 1286091 18444
+## - pct_married_households  1       475 1286106 18444
+## - median_age_male         1       609 1286240 18444
+## &lt;none&gt;                                1285631 18445
+## - poverty_percent         1      1785 1287416 18447
+## - income_cat              1      5170 1290801 18455
+## - pct_unemployed16_over   1     13774 1299405 18475
+## - med_income              1     24237 1309868 18500
+## - pct_other_race          1     25251 1310882 18502
+## - pct_upto_hs18_24        1     44656 1330287 18547
+## - incidence_rate          1    366409 1652040 19207
 ## 
-## Step:  AIC=18453.28
+## Step:  AIC=18443.14
 ## target_death_rate ~ incidence_rate + med_income + poverty_percent + 
 ##     median_age_male + pct_unemployed16_over + pct_asian + pct_other_race + 
-##     pct_married_households + pct_upto_hs18_24 + pct_with_coverage
+##     pct_married_households + pct_upto_hs18_24 + pct_with_coverage + 
+##     income_cat
 ## 
 ##                          Df Sum of Sq     RSS   AIC
-## - pct_married_households  1       326 1291298 18452
-## - pct_with_coverage       1       341 1291313 18452
-## - pct_asian               1       500 1291472 18452
-## &lt;none&gt;                                1290972 18453
-## - median_age_male         1      6138 1297110 18466
-## - poverty_percent         1      6374 1297346 18466
-## - pct_unemployed16_over   1     13943 1304915 18484
-## - med_income              1     21686 1312658 18502
-## - pct_other_race          1     26046 1317018 18512
-## - pct_upto_hs18_24        1     45210 1336182 18556
-## - incidence_rate          1    366147 1657119 19212
+## - pct_with_coverage       1       349 1286188 18442
+## - pct_married_households  1       426 1286264 18442
+## - pct_asian               1       450 1286289 18442
+## &lt;none&gt;                                1285839 18443
+## - poverty_percent         1      1782 1287621 18445
+## - income_cat              1      5133 1290972 18453
+## - median_age_male         1      7842 1293681 18460
+## - pct_unemployed16_over   1     13889 1299728 18474
+## - med_income              1     24031 1309870 18498
+## - pct_other_race          1     25115 1310954 18500
+## - pct_upto_hs18_24        1     44675 1330513 18545
+## - incidence_rate          1    367794 1653633 19208
 ## 
-## Step:  AIC=18452.05
+## Step:  AIC=18441.97
 ## target_death_rate ~ incidence_rate + med_income + poverty_percent + 
 ##     median_age_male + pct_unemployed16_over + pct_asian + pct_other_race + 
-##     pct_upto_hs18_24 + pct_with_coverage
+##     pct_married_households + pct_upto_hs18_24 + income_cat
 ## 
-##                         Df Sum of Sq     RSS   AIC
-## - pct_with_coverage      1       321 1291619 18451
-## - pct_asian              1       375 1291673 18451
-## &lt;none&gt;                               1291298 18452
-## - median_age_male        1      6227 1297524 18465
-## - poverty_percent        1      7841 1299139 18468
-## - pct_unemployed16_over  1     14707 1306005 18485
-## - med_income             1     22568 1313866 18503
-## - pct_other_race         1     25949 1317247 18511
-## - pct_upto_hs18_24       1     45946 1337243 18557
-## - incidence_rate         1    376665 1667963 19230
+##                          Df Sum of Sq     RSS   AIC
+## - pct_married_households  1       402 1286590 18441
+## - pct_asian               1       445 1286633 18441
+## &lt;none&gt;                                1286188 18442
+## - poverty_percent         1      2302 1288489 18445
+## - income_cat              1      5125 1291313 18452
+## - median_age_male         1      8455 1294642 18460
+## - pct_unemployed16_over   1     14484 1300671 18474
+## - pct_other_race          1     24956 1311144 18498
+## - med_income              1     25019 1311207 18499
+## - pct_upto_hs18_24        1     55219 1341407 18568
+## - incidence_rate          1    388985 1675172 19245
 ## 
-## Step:  AIC=18450.81
+## Step:  AIC=18440.92
 ## target_death_rate ~ incidence_rate + med_income + poverty_percent + 
 ##     median_age_male + pct_unemployed16_over + pct_asian + pct_other_race + 
-##     pct_upto_hs18_24
+##     pct_upto_hs18_24 + income_cat
 ## 
 ##                         Df Sum of Sq     RSS   AIC
-## - pct_asian              1       375 1291994 18450
-## &lt;none&gt;                               1291619 18451
-## - median_age_male        1      6748 1298367 18465
-## - poverty_percent        1      9321 1300940 18471
-## - pct_unemployed16_over  1     15280 1306899 18485
-## - med_income             1     23473 1315092 18504
-## - pct_other_race         1     25856 1317475 18509
-## - pct_upto_hs18_24       1     57690 1349309 18582
-## - incidence_rate         1    400210 1691829 19271
+## - pct_asian              1       314 1286904 18440
+## &lt;none&gt;                               1286590 18441
+## - poverty_percent        1      3082 1289672 18446
+## - income_cat             1      5029 1291619 18451
+## - median_age_male        1      8528 1295118 18459
+## - pct_unemployed16_over  1     15307 1301897 18475
+## - pct_other_race         1     24893 1311483 18497
+## - med_income             1     25960 1312550 18500
+## - pct_upto_hs18_24       1     56702 1343292 18570
+## - incidence_rate         1    402317 1688907 19268
 ## 
-## Step:  AIC=18449.69
+## Step:  AIC=18439.67
 ## target_death_rate ~ incidence_rate + med_income + poverty_percent + 
 ##     median_age_male + pct_unemployed16_over + pct_other_race + 
-##     pct_upto_hs18_24
+##     pct_upto_hs18_24 + income_cat
 ## 
 ##                         Df Sum of Sq     RSS   AIC
-## &lt;none&gt;                               1291994 18450
-## - median_age_male        1      6711 1298705 18464
-## - poverty_percent        1      8946 1300940 18469
-## - pct_unemployed16_over  1     15015 1307009 18483
-## - pct_other_race         1     27263 1319257 18511
-## - med_income             1     31029 1323022 18520
-## - pct_upto_hs18_24       1     61576 1353570 18590
-## - incidence_rate         1    400507 1692501 19270</code></pre>
+## &lt;none&gt;                               1286904 18440
+## - poverty_percent        1      2823 1289727 18444
+## - income_cat             1      5090 1291994 18450
+## - median_age_male        1      8502 1295406 18458
+## - pct_unemployed16_over  1     15071 1301975 18473
+## - pct_other_race         1     26175 1313079 18499
+## - med_income             1     33862 1320766 18517
+## - pct_upto_hs18_24       1     60359 1347263 18577
+## - incidence_rate         1    402613 1689517 19267</code></pre>
 <pre><code>## 
 ## Call:
 ## lm(formula = target_death_rate ~ incidence_rate + med_income + 
 ##     poverty_percent + median_age_male + pct_unemployed16_over + 
-##     pct_other_race + pct_upto_hs18_24, data = cancer_county)
+##     pct_other_race + pct_upto_hs18_24 + income_cat, data = cancer_county)
 ## 
 ## Coefficients:
 ##           (Intercept)         incidence_rate             med_income  
-##            81.8127450              0.2180419             -0.0004896  
+##             92.982339               0.218690              -0.000516  
 ##       poverty_percent        median_age_male  pct_unemployed16_over  
-##             0.5776800             -0.3424157              0.8716690  
-##        pct_other_race       pct_upto_hs18_24  
-##            -0.9144820              0.3930551</code></pre>
+##              0.362069              -0.390358               0.873289  
+##        pct_other_race       pct_upto_hs18_24             income_cat  
+##             -0.896928               0.389360              -5.175949</code></pre>
 </div>
 </div>
 </div>

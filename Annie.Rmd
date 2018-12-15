@@ -8,30 +8,65 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(psych)
+library(multcomp)
+library(faraway)
+library(dplyr)
+library(patchwork)
+library("leaps")
+library(caret)
+library(glmnet)
+library(patchwork)
+library(broom)
+library(modelr)
+library(olsrr)
 ```
 
 
-```{r}
-# load the data:
+```{r, echo=FALSE, message=FALSE}
+# load and read the data:
 cancer_df <- read_csv("./data/Cancer_Registry.csv") %>% 
   janitor::clean_names() %>% 
-  separate(geography, into = c("county", "state"), sep = ", ") %>% 
-  select(target_death_rate, target_death_rate, med_income, poverty_percent, median_age,
-         median_age_male, median_age_female, county, state, pct_no_hs18_24,
-         pct_hs18_24,pct_bach_deg18_24, pct_hs25_over,
-         pct_bach_deg25_over, pct_unemployed16_over,
-         pct_white, pct_black, pct_asian, pct_other_race) %>% 
-  na.omit() 
-  
-  
-# because the varibale of pct_some_col18_24, pct_employed16_over has many NAs, so I decide to delete the two varibale. The total has 18 varibales at the beginning. 
+  separate(geography, into = c("county", "state"), sep = ", ") %>%
+  dplyr::select(target_death_rate, 
+         med_income, 
+         poverty_percent, 
+         median_age,
+         median_age_male, 
+         median_age_female, 
+         pct_no_hs18_24, 
+         pct_hs18_24, 
+         pct_some_col18_24,
+         pct_bach_deg18_24, 
+         pct_hs25_over, 
+         pct_bach_deg25_over, 
+         pct_employed16_over, 
+         pct_unemployed16_over, 
+         pct_white, 
+         pct_black, 
+         pct_asian, 
+         pct_other_race) %>% 
+  na.omit()
+# variable choosen from the Justine
   
 ```
 
+```{r, echo=FALSE, message=FALSE}
+# exploratory analysis:
 
-The discriptive statistics are shown below.
-```{r}
+cor(cancer_df) %>% 
+  knitr::kable()
+
+cancer_df %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+#The discriptive statistics are shown below.
 state_summary = function(x){
 mean = mean(x)
 max = max(x)
@@ -51,9 +86,11 @@ df_median_agemale<-state_summary(cancer_df$median_age_male)
 df_median_agefemale<-state_summary(cancer_df$median_age_female)
 df_pct_no_hs18_24 <-state_summary(cancer_df$pct_no_hs18_24)
 df_pct_hs18_24 <-state_summary(cancer_df$pct_hs18_24) 
+df_pct_some_col18_24 <-state_summary(cancer_df$pct_some_col18_24) 
 df_pct_bach_deg18_24<-state_summary(cancer_df$pct_bach_deg18_24) 
 df_pct_hs25_over<-state_summary(cancer_df$pct_hs25_over) 
 df_pct_bach_deg25_over<-state_summary(cancer_df$pct_bach_deg25_over) 
+df_pct_employed16_over<-state_summary(cancer_df$pct_employed16_over) 
 df_pct_unemployed16_over<-state_summary(cancer_df$pct_unemployed16_over) 
 df_pct_white<-state_summary(cancer_df$pct_white)
 df_pct_black<-state_summary(cancer_df$pct_black) 
@@ -69,15 +106,17 @@ state_des <- bind_rows(df_target_death_rate,
                        df_median_agefemale,
                        df_pct_no_hs18_24,
                        df_pct_hs18_24,
+                       df_pct_some_col18_24,
                        df_pct_bach_deg18_24, 
                        df_pct_hs25_over, 
                        df_pct_bach_deg25_over,
+                       df_pct_employed16_over, 
                        df_pct_unemployed16_over, 
                        df_pct_white,
                        df_pct_black, 
                        df_pct_asian,
                        df_pct_other_race) 
-variable<- c("target_death_rate", "med_income", "poverty_percent", "median_age", "median_agemale", "median_agefemale", "pct_no_hs18_24", "pct_hs18_24", "pct_bach_deg18_24", "pct_hs25_over", " df_pct_bach_deg25_over", "pct_unemployed16_over", "pct_white", "pct_black", "pct_asian", "pct_other_race")
+variable<- c("target_death_rate", "med_income", "poverty_percent", "median_age", "median_agemale", "median_agefemale", "pct_no_hs18_24", "pct_hs18_24", "df_pct_some_col18_24", "pct_bach_deg18_24", "pct_hs25_over", " df_pct_bach_deg25_over", "pct_employed16_over", "pct_unemployed16_over", "pct_white", "pct_black", "pct_asian", "pct_other_race")
 
 state_wholedes <- cbind(variable, state_des) 
 
@@ -86,33 +125,139 @@ knitr::kable(state_wholedes)
 
 
 
-```{r}
-cancer_df %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-    facet_wrap(~ key, scales = "free") +
-    geom_histogram()
+```{r, echo=FALSE, message=FALSE}
+# building full model
+full_model <- lm(target_death_rate ~., data = cancer_df)
+summary(full_model)
 
-# we could find the  median_age, pct_asian, pct_bach_deg18_24, pct_black, pct_other_race do not have normal distribution, need to transform 
+# Using the stepwise 
+stepwise_model <- stepAIC(full_model, direction = "both", trace = FALSE)
+summary(stepwise_model) # the stepwise delete the median_age, median_age_female, pct_hs18_24 ，pct_employed16_over， pct_white 
 
-log_cancer <- cancer_df %>% 
-  mutate(median_age = log(median_age),
-       pct_asian = log(pct_asian),
-       pct_bach_deg18_24 = log(pct_bach_deg18_24),
-       pct_black = log(pct_black),
-       pct_other_race = log (pct_other_race)) %>% 
-data.frame()
+vif(stepwise_model) # all of cofficients VIF are less than 5, so need to keep them.
 
-# check the distribution again
-log_cancer %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-    facet_wrap(~ key, scales = "free") +
-    geom_histogram()
+# Cp and AIC and Adjusted R2
+
+model_dig <- glance(stepwise_model) %>% 
+  as.data.frame() %>% 
+  dplyr::select(adj.r.squared, sigma, p.value, AIC, BIC) %>% 
+  rename(RES = sigma) %>% 
+  mutate(cp = ols_mallows_cp(stepwise_model, full_model))
+
+model_dig
 ```
 
-```{r}
+
+```{r, echo=FALSE, message=FALSE}
+# forword elimination:
+
+step_null <- lm(target_death_rate ~1, data = cancer_df)
+for_model <- step(step_null, scope = list(lower = step_null, upper = full_model), direction = "forward")
+
+summary(for_model)
+vif(for_model)
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+# backward elimination:
+
+back_model <- step(full_model, direction = "backward", trace = FALSE)
+summary(back_model) # same as stepwise
+vif(back_model)
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+# Cross validation:
+cross_df <- crossv_mc(cancer_df, n=100, test = 0.2)
+
+cross_model <- lm(formula = target_death_rate ~ poverty_percent+median_age_male+pct_no_hs18_24+pct_bach_deg18_24+pct_hs25_over+pct_bach_deg25_over+pct_unemployed16_over+pct_black+pct_asian+pct_other_race, data = cancer_df)
+
+cross_result <- cross_df %>% 
+  mutate(train = map(train, as_tibble),
+         test = map(test, as_tibble),
+         step_mod = map(train, ~cross_model),
+         rmse_step = map2_dbl(step_mod, test, ~rmse(model = .x, data = .y)))
+  
+
+rmse_result <- cross_result %>% 
+  dplyr::select(rmse_step) %>%
+  lapply(mean) %>% 
+  as.data.frame(digit=3) %>%
+  gather(key=model, value=rmse, rmse_step)
+  
+rmse_result  
+```
+
+```{r, echo=FALSE, message=FALSE}
+# Criterion method summery
+rbind(model_dig) %>% 
+  cbind(., rmse_result) %>% 
+  dplyr::select(model, everything()) %>% 
+  knitr::kable()
+```
+
+```{r, echo=FALSE, message=FALSE}
+# check ourtliers 
+par(mfrow = c(2,2))
+plot(stepwise_model) # we observe the 249, 310 and 608 are outliers
+
+# Using the studentized residuals
+stu_res_step <- rstandard(stepwise_model)
+outliers_y_step = stu_res_step[abs(stu_res_step) > 4]
+outliers_y_step
+
+stu_res_for = rstandard(for_model)
+outliers_y_for = stu_res_for[abs(stu_res_for) > 4]
+outliers_y_for # 249, 310, 608
+
+# various measure of influence
+influence.measures(stepwise_model) #249, 310, 608 noted as potential influential
+
+
+
+```
+
+```{r, echo=FALSE, message=FALSE}
+# remove the outliers
+step_model_no_249 <- cancer_df %>% 
+  dplyr::select(-med_income, -median_age,  -median_age_female, -pct_hs18_24, -pct_employed16_over, -pct_white) %>% 
+  tibble::rowid_to_column() %>% 
+  filter(rowid !=249) %>% 
+  na.omit()
+
+for_model_no_249 <- cancer_df %>% 
+  dplyr::select(-med_income, -median_age,  -median_age_female, -pct_no_hs18_24, -pct_bach_deg18_24, -pct_employed16_over, -pct_white) %>% 
+  tibble::rowid_to_column() %>% 
+  filter(rowid !=249) %>% 
+  na.omit()
+
+# filter outlier 249
+step_no_249 <- update(stepwise_model, . ~ ., data = step_model_no_249)
+summary(step_no_249)
+
+for_no_249 <- update(for_model, . ~ ., data = for_model_no_249)
+summary(for_no_249)
+
+# filter #249, 310, 608
+
+step_model_no_all <- cancer_df %>% 
+  dplyr::select(-med_income, -median_age,  -median_age_female, -pct_hs18_24, -pct_employed16_over, -pct_white) %>% 
+  tibble::rowid_to_column() %>% 
+  filter(rowid !=249 & rowid != 310 & rowid != 608) %>% 
+  na.omit()
+
+for_model_no_all <- cancer_df %>% 
+  dplyr::select(-med_income, -median_age,  -median_age_female, -pct_no_hs18_24, -pct_bach_deg18_24, -pct_employed16_over, -pct_white) %>% 
+  tibble::rowid_to_column() %>% 
+  filter(rowid !=249 & rowid != 310 & rowid != 608) %>% 
+  na.omit()
+
+step_no_all <- update(stepwise_model, . ~ ., data = step_model_no_all)
+summary(step_no_all)
+
+for_no_all <- update(for_model, . ~ ., data = for_model_no_all)
+summary(for_no_all)
 ```
 

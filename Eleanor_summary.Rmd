@@ -1,0 +1,145 @@
+---
+title: "Eleanor_summary"
+author: "Eleanor Zhang"
+date: "12/15/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Read Data
+
+Read original data
+
+```{r}
+cancer_data <- read_csv("./data/Cancer_Registry.csv")
+summary(cancer_data)
+str(cancer_data)
+# check strings entry
+anyNA(cancer_data$binnedInc)
+anyNA(cancer_data$Geography)
+View(cancer_data)
+```
+
+
+About this data:
+
+*   NA variables: PctSomeCol18_24(2285/), PctEmployed16_Over(152/), PctPrivateCoverageAlone(609)
+*   3047 observations, 34 variables, we selected 20 variables (after separating county and state name)
+*   18-24 ages information are not intact so we will not use those data
+
+Look at the distribution of all variables (histogram)
+
+```{r}
+cancer_data %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+```
+
+Select variables
+
+```{r select variables}
+cancer <- cancer_data %>% 
+  janitor::clean_names() %>% 
+  separate(geography, into = c("county", "state"), sep = ", ") %>% # 20 variables
+  select(target_death_rate, # response: Mean per capita (100000) cancer mortalities
+         med_income, # median income per county
+         poverty_percent, # percent of population in poverty
+         median_age, # median age of county residents
+         median_age_male, median_age_female, # of county residents
+         county, state, 
+         pct_no_hs18_24, pct_hs18_24, # age 18-24, percent of highest diploma less than/is high school 
+         pct_some_col18_24, pct_bach_deg18_24, # percent of highest diploma:some colledge/bachelor
+         # pct_hs25_over, pct_bach_deg25_over, # >age 25, highest diploma: high school/bachelor
+         pct_unemployed16_over, #pct_public_coverage, 
+         pct_married_households,
+         pct_white, pct_black, pct_asian, pct_other_race,
+         incidence_rate) %>%  # percent of race
+  mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
+         pct_above_hs18_24 = 100 - pct_upto_hs18_24) %>% 
+  select(-pct_no_hs18_24, -pct_hs18_24, -pct_some_col18_24, -pct_bach_deg18_24)
+summary(cancer)
+str(cancer)
+View(cancer)
+```
+
+check NA
+
+```{r}
+anyNA(cancer) # No NA involved
+str(cancer)
+```
+
+
+Look at distribution of selected variables:
+
+```{r variables distribution}
+cancer %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+```
+
+Income level might need adjusted!!
+
+plot pairs of variables
+
+```{r correlation of variables}
+pairs(cancer[-c(7,8)]) # remove strings county and state
+abs(cor(cancer[-c(7,8)])) > 0.6 # colinearity 
+```
+
+## Model selection (with income unchanged)
+
+create dataset for modeling
+
+```{r}
+cancer_county <- cancer %>% select(-county, -state, -pct_above_hs18_24, -median_age)
+cancer_county
+```
+
+look at variables
+
+```{r}
+pairs(cancer_county)
+```
+
+all variables
+
+```{r}
+all_var <- lm(target_death_rate ~. , data = cancer_county)
+summary(all_var)
+HH::vif(all_var)
+```
+
+backward selection
+
+```{r}
+step(all_var, direction='both')
+step(all_var, direction='backward')
+```
+
+backward model
+
+```{r}
+back_model <- lm(target_death_rate ~ med_income + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_other_race + 
+    incidence_rate + pct_upto_hs18_24, data = cancer_county)
+summary(back_model)
+plot(back_model)
+HH::vif(back_model)
+MASS::boxcox(back_model)
+```
+
+
+## Model Selection (with income levels)
+
+

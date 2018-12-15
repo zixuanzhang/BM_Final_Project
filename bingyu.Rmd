@@ -113,12 +113,12 @@ Low income was defined as the lowest quartile of incomes (<$35,000)
 cancer_county =
   cancer_raw %>% 
   select(target_death_rate, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_married_households) %>% 
-  select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over) %>% 
+  select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over, -percent_married) %>% 
   mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
          pct_above_hs18_24 = 100 - pct_upto_hs18_24,
          pct_with_coverage = pct_private_coverage + pct_public_coverage_alone) %>% 
   select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %>% 
-  na.omit()
+  na.omit
 ```
 
 **By state**

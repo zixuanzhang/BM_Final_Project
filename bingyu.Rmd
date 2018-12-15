@@ -9,6 +9,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
+library(faraway)
+library(broom)
+library(leaps)
+library(caret)
+set.seed(1)
 ```
 
 ##Data Import
@@ -105,23 +110,46 @@ Low income was defined as the lowest quartile of incomes (<$35,000)
 
 **By county**
 ```{r}
-cancer_county_hs =
+cancer_county =
   cancer_raw %>% 
-  select(target_death_rate, county, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_other_race) %>% 
-  select(-pct_hs25_over, -pct_bach_deg25_over) %>% 
+  select(target_death_rate, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_married_households) %>% 
+  select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over) %>% 
   mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
          pct_above_hs18_24 = 100 - pct_upto_hs18_24,
-         pct_minority = pct_black + pct_asian + pct_other_race) %>% 
-  select(-(pct_no_hs18_24:pct_bach_deg18_24))
+         pct_with_coverage = pct_private_coverage + pct_public_coverage_alone) %>% 
+  select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %>% 
+  na.omit()
 ```
 
 **By state**
 ```{r}
 cancer_state =
   cancer_raw %>% 
-  select(target_death_rate, state, incidence_rate, med_income, poverty_percent, median_age:median_age_female, pct_no_hs18_24:pct_other_race) %>%
+  select(target_death_rate, state, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_married_households) %>% 
+  select(-pct_hs25_over, -pct_bach_deg25_over) %>% 
+  mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
+         pct_above_hs18_24 = 100 - pct_upto_hs18_24,
+         pct_minority = pct_black + pct_asian + pct_other_race) %>% 
+  select(-(pct_no_hs18_24:pct_bach_deg18_24)) %>% 
   group_by(state) %>% 
   summarize_all(median)
 ```
 
+##Model building
 
+###Automatic Procedures
+
+* Use alpha = 0.15 (exploratory analysis: be less stringent)
+
+#### Regression model with all the variables
+
+```{r}
+fit_all = lm(target_death_rate ~ ., data = cancer_county)
+summary(fit_all)
+```
+
+#### Stepwise
+
+```{r}
+step(fit_all, direction = 'backward') #select by AIC
+```

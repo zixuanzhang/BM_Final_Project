@@ -19,6 +19,7 @@ library(patchwork)
 library(broom)
 library(modelr)
 library(olsrr)
+library(boot)
 ```
 
 ##Data Import
@@ -80,14 +81,15 @@ cancer_raw %>%
 ## Choose variables:
 ```{r}
 cancer_county =
-  cancer_raw %>% 
+  cancer_raw %>%
+  janitor::clean_names() %>% 
   dplyr::select(target_death_rate, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_married_households) %>% 
   dplyr::select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over, -percent_married) %>% 
   mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
          pct_above_hs18_24 = 100 - pct_upto_hs18_24,
          pct_with_coverage = pct_private_coverage + pct_public_coverage_alone,
          income_cat = ifelse(med_income < 35000, 0, 1)) %>% 
-  dplyr::select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %>% 
+  dplyr::select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone), -med_income) %>% 
   na.omit
 ```
 
@@ -120,7 +122,6 @@ tibble(mean, max, min, median, var, sd, sample_size)
 
 df_target_death_rate <-state_summary(cancer_county$target_death_rate)
 df_incidence_rate <-state_summary(cancer_county$incidence_rate)
-df_med_income <-state_summary(cancer_county$med_income) 
 df_poverty_percent<-state_summary(cancer_county$poverty_percent) 
 df_median_age<-state_summary(cancer_county$median_age) 
 df_median_agemale<-state_summary(cancer_county$median_age_male) 
@@ -137,7 +138,6 @@ df_pct_with_coverage<-state_summary(cancer_county$pct_with_coverage)
 
 state_des <- bind_rows(df_target_death_rate,
                        df_incidence_rate,
-                       df_med_income, 
                        df_poverty_percent, 
                        df_median_age,
                        df_median_agemale,
@@ -151,14 +151,17 @@ state_des <- bind_rows(df_target_death_rate,
                        df_pct_married_households,
                        df_pct_upto_hs18_24,
                        df_pct_with_coverage) 
-variable<- c("target_death_rate", "incidence_rate","med_income", "poverty_percent", "median_age", "median_agemale", "median_agefemale", "avg_household_size","pct_unemployed16_over", "pct_white", "pct_black", "pct_asian", "pct_other_race", "pct_married_households", "pct_upto_hs18_24", "pct_with_coverage")
+variable<- c("target_death_rate", "incidence_rate","poverty_percent", "median_age", "median_agemale", "median_agefemale", "avg_household_size","pct_unemployed16_over", "pct_white", "pct_black", "pct_asian", "pct_other_race", "pct_married_households", "pct_upto_hs18_24", "pct_with_coverage")
 
 state_wholedes <- cbind(variable, state_des) 
 
 knitr::kable(state_wholedes)
 ```
 
+
 ##Model building:
+
+####Stepwise:
 ```{r}
 # building full model
 full_model <- lm(target_death_rate ~., data = cancer_county)
@@ -179,5 +182,120 @@ model_dig <- glance(stepwise_model) %>%
   mutate(cp = ols_mallows_cp(stepwise_model, full_model))
 
 model_dig
+```
+
+#### forword elimination:
+```{r}
+step_null <- lm(target_death_rate ~1, data = cancer_county)
+for_model <- step(step_null, scope = list(lower = step_null, upper = full_model), direction = "forward")
+
+summary(for_model)
+vif(for_model)
+```
+
+##### backward elimination:
+```{r}
+back_model <- step(full_model, direction = "backward", trace = FALSE)
+summary(back_model) # same as stepwise
+vif(back_model)
+```
+
+
+## Cross validation and Criterion method summery
+```{r}
+cross_df <- crossv_mc(cancer_county, n=100, test = 0.2)
+
+cross_model <- lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage + income_cat, data = cancer_county)
+
+cross_result <- cross_df %>% 
+  mutate(train = map(train, as_tibble),
+         test = map(test, as_tibble),
+         step_mod = map(train, ~cross_model),
+         rmse_step = map2_dbl(step_mod, test, ~rmse(model = .x, data = .y)))
+  
+
+rmse_result <- cross_result %>% 
+  dplyr::select(rmse_step) %>%
+  lapply(mean) %>% 
+  as.data.frame(digit=3) %>%
+  gather(key=model, value=rmse, rmse_step)
+  
+rmse_result 
+
+rbind(model_dig) %>% 
+  cbind(., rmse_result) %>% 
+  dplyr::select(model, everything()) %>% 
+  knitr::kable()
+```
+
+##Bootstrap
+```{r}
+back_model = lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage + income_cat, data = cancer_county)
+
+cancer_county %>% 
+  modelr::bootstrap(n = 1000) %>% 
+  mutate(models = map(strap, ~lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage + income_cat, data = .x)),
+         results = map(models, broom::tidy)) %>% 
+  dplyr::select(-strap, -models) %>% 
+  unnest() %>% 
+  group_by(term) %>% 
+  summarize(boot_se = sd(estimate))
+
+```
+
+
+
+## Outliers
+```{r, message=FALSE}
+par(mfrow = c(2,2))
+plot(stepwise_model) # we observe the 282, 1059 are outliers
+
+# Using the studentized residuals
+stu_res_step <- rstandard(stepwise_model)
+outliers_y_step = stu_res_step[abs(stu_res_step) > 2.5]
+outliers_y_step
+
+stu_res_for = rstandard(for_model)
+outliers_y_for = stu_res_for[abs(stu_res_for) > 2.5]
+outliers_y_for
+
+# various measure of influence
+influence.measures(stepwise_model) #we observe the 282, 1059 are potential outliers
+```
+
+# Remove outliers:
+```{r}
+
+# filter outlier 282
+step_model_no_282 <- cancer_county %>% 
+  dplyr::select(-median_age, -pct_black, -median_age_female, avg_household_size) %>% 
+  tibble::rowid_to_column() %>% 
+  filter(rowid !=282) %>% 
+  na.omit()
+
+step_no_282 <- update(stepwise_model, . ~ ., data = step_model_no_282)
+summary(step_no_282)
+
+# filter #282, 1059
+step_model_no_all <- cancer_county %>% 
+  dplyr::select(-median_age, -pct_black, -median_age_female, avg_household_size) %>% 
+  tibble::rowid_to_column() %>% 
+  filter(rowid !=282 & rowid != 1059) %>% 
+  na.omit()
+
+step_no_all <- update(stepwise_model, . ~ ., data = step_model_no_all)
+summary(step_no_all)
+
+par(mfrow = c(2,2))
+plot(step_no_all)
 ```
 

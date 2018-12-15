@@ -118,7 +118,7 @@ cancer_county =
          pct_above_hs18_24 = 100 - pct_upto_hs18_24,
          pct_with_coverage = pct_private_coverage + pct_public_coverage_alone,
          income_cat = ifelse(med_income < 35000, 0, 1)) %>% 
-  select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %>% 
+  select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone), -med_income) %>% 
   na.omit
 ```
 
@@ -155,6 +155,7 @@ cancer_state =
 
 ```{r}
 fit_all = lm(target_death_rate ~ ., data = cancer_county)
+
 summary(fit_all)
 ```
 
@@ -162,16 +163,25 @@ summary(fit_all)
 
 ```{r}
 step(fit_all, direction = 'backward') #select by AIC
-```
 
-##Model Validation
-
-```{r}
 back_model = lm(target_death_rate ~ incidence_rate + poverty_percent + 
     median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
     pct_other_race + pct_married_households + pct_upto_hs18_24 + 
     pct_with_coverage + income_cat, data = cancer_county)
 
+summary(back_model)
+```
+
+##Model Diagonsis
+
+```{r}
+par(mfrow = c(2,2))
+plot(back_model)
+```
+
+##Model Validation
+
+```{r}
 cancer_county %>% 
   modelr::bootstrap(n = 1000) %>% 
   mutate(models = map(strap, ~lm(target_death_rate ~ incidence_rate + poverty_percent + 

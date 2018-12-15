@@ -167,6 +167,21 @@ step(fit_all, direction = 'backward') #select by AIC
 ##Model Validation
 
 ```{r}
+back_model = lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage + income_cat, data = cancer_county)
 
+cancer_county %>% 
+  modelr::bootstrap(n = 1000) %>% 
+  mutate(models = map(strap, ~lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage + income_cat, data = .x)),
+         results = map(models, broom::tidy)) %>% 
+  select(-strap, -models) %>% 
+  unnest() %>% 
+  group_by(term) %>% 
+  summarize(boot_se = sd(estimate))
 ```
 

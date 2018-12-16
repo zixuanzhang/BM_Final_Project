@@ -1,0 +1,135 @@
+---
+title: "model selection"
+author: "Eleanor Zhang"
+date: "12/16/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## read data
+
+```{r}
+cancer_data <- read_csv("./data/Cancer_Registry.csv")
+
+cancer_county <- cancer_data %>% 
+  janitor::clean_names() %>% 
+  separate(geography, into = c("county", "state"), sep = ", ") %>% 
+  dplyr::select(target_death_rate, incidence_rate, med_income, poverty_percent, median_age:median_age_female, avg_household_size:pct_married_households) %>% 
+  dplyr::select(-pct_hs25_over, -pct_bach_deg25_over, -pct_employed16_over, -percent_married) %>% 
+  mutate(pct_upto_hs18_24 = pct_no_hs18_24 + pct_hs18_24,
+         pct_above_hs18_24 = 100 - pct_upto_hs18_24,
+         pct_with_coverage = pct_private_coverage + pct_public_coverage_alone,
+         income_cat = ifelse(med_income < 35000, 0, 1)) %>% 
+  dplyr::select(-(pct_no_hs18_24:pct_bach_deg18_24), -pct_above_hs18_24, -(pct_private_coverage:pct_public_coverage_alone)) %>% 
+  na.omit
+
+dim(cancer_county)
+anyNA(cancer_county)
+```
+
+## model selection
+
+Seperate by income: piecewise 
+
+```{r}
+income_low_data <- cancer_county %>% filter(income_cat == 0) %>% dplyr::select(-income_cat)
+income_high_data <- cancer_county %>% filter(income_cat == 1) %>% dplyr::select(-income_cat)
+```
+
+#### step wise procedure
+
+```{r}
+# low income
+full_model_low <- lm(target_death_rate ~., data = income_low_data)
+summary(full_model_low)
+
+step(full_model_low, direction = "backward")
+
+backward_model_low <- lm(target_death_rate ~ incidence_rate + med_income + 
+    median_age_male + median_age_female + pct_white + pct_black + 
+    pct_asian + pct_other_race + pct_upto_hs18_24 + pct_with_coverage, 
+    data = income_low_data)
+summary(backward_model_low)
+
+# high income
+full_model_high <- lm(target_death_rate ~., data = income_high_data)
+summary(full_model_high)
+
+step(full_model_high, direction = "backward")
+
+backward_model_high <- lm(target_death_rate ~ incidence_rate + med_income + 
+    median_age_male + pct_unemployed16_over + pct_black + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = income_high_data)
+summary(backward_model_high)
+```
+
+Check assumption
+
+```{r}
+plot(backward_model_low)
+plot(backward_model_high)
+```
+
+#### citerion based approach
+
+low income
+```{r}
+library(leaps)
+criterion_stats_low =
+  regsubsets(target_death_rate ~ ., nvmax = 12, data = income_low_data) %>% 
+  summary()
+
+criterion_stats_low
+
+par(mar = c(4,4,1,1))
+par(mfrow = c(1,2))
+
+plot(2:13, criterion_stats_low$cp, xlab = "No of parameters", ylab = "Cp Statistic")
+abline(0,1)
+
+plot(2:13, criterion_stats_low$adjr2, xlab = "No of parameters", ylab = "Adj R2")
+
+## 9 predictors are sufficient
+criterion_model_low <- lm(formula = target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + median_age_female + pct_white + pct_black + pct_asian + 
+    pct_other_race +  pct_with_coverage, data = income_low_data)
+```
+
+high income
+
+```{r}
+criterion_stats_high =
+  regsubsets(target_death_rate ~ ., nvmax = 12, data = income_high_data) %>% 
+  summary()
+
+criterion_stats_high
+par(mar = c(4,4,1,1))
+par(mfrow = c(1,2))
+
+plot(2:13, criterion_stats_high$cp, xlab = "No of parameters", ylab = "Cp Statistic")
+abline(0,1)
+
+plot(2:13, criterion_stats_high$adjr2, xlab = "No of parameters", ylab = "Adj R2")
+
+# 7 predictors are sufficients
+criterion_model_high <- lm(formula = target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_female + pct_unemployed16_over + pct_black + pct_other_race + pct_upto_hs18_24, 
+    data = income_high_data)
+```
+
+check assumption
+
+```{r}
+plot(criterion_model_low)
+plot(criterion_model_high)
+```
+
+## outlier
+
+
+

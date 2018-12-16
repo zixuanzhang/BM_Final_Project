@@ -373,6 +373,13 @@ plot(2:15, criterion_stats_low$cp, xlab = "No of parameters", ylab = "Cp Statist
 abline(0,1)
 
 plot(2:15, criterion_stats_low$adjr2, xlab = "No of parameters", ylab = "Adj R2")
+
+## 9 predictors are sufficient
+lm(formula = target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + median_age_female + pct_black + pct_asian + 
+    pct_other_race + pct_married_households + 
+    pct_with_coverage, data = income_low_data) %>% summary
+
 ```
 
 **High income**
@@ -388,6 +395,11 @@ plot(2:15, criterion_stats_high$cp, xlab = "No of parameters", ylab = "Cp Statis
 abline(0,1)
 
 plot(2:15, criterion_stats_high$adjr2, xlab = "No of parameters", ylab = "Adj R2")
+
+# 7 predictors are sufficients
+lm(formula = target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_asian + pct_other_race + pct_upto_hs18_24, 
+    data = income_high_data) %>% summary
 ```
 
 ## Cross Validation

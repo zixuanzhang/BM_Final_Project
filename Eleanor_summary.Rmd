@@ -40,6 +40,7 @@ cancer_data %>%
   ggplot(aes(value)) +
     facet_wrap(~ key, scales = "free") +
     geom_histogram()
+
 ```
 
 Select variables
@@ -221,9 +222,9 @@ dim(income_high_data)
 dim(income_low_data)
 ```
 
-## Cross validation
+## bootstrap
 
-```{r}
+```{r bootstrp}
 library(boot)
 
 glm.fit <- glm(target_death_rate ~ incidence_rate + poverty_percent + 
@@ -239,6 +240,5 @@ anova(back_model)
 dim(cancer_county_model)
 glance(back_model)
 ```
-
 
 

@@ -544,6 +544,32 @@ plot(back_model)</code></pre>
 ## 10 pct_white               0.0440
 ## 11 pct_with_coverage       0.128 
 ## 12 poverty_percent         0.146</code></pre>
+<p>Check if income_cat is confounder or not?</p>
+<pre class="r"><code>back_model = lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage + income_cat, data = cancer_county)
+
+alt_model = lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = cancer_county)
+
+anova(alt_model, back_model)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: target_death_rate ~ incidence_rate + poverty_percent + median_age_male + 
+##     pct_unemployed16_over + pct_white + pct_asian + pct_other_race + 
+##     pct_married_households + pct_upto_hs18_24 + pct_with_coverage
+## Model 2: target_death_rate ~ incidence_rate + poverty_percent + median_age_male + 
+##     pct_unemployed16_over + pct_white + pct_asian + pct_other_race + 
+##     pct_married_households + pct_upto_hs18_24 + pct_with_coverage + 
+##     income_cat
+##   Res.Df     RSS Df Sum of Sq      F   Pr(&gt;F)   
+## 1   3036 1310744                                
+## 2   3035 1307574  1    3170.6 7.3593 0.006709 **
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
 </div>
 
 

@@ -195,3 +195,20 @@ cancer_county %>%
   summarize(boot_se = sd(estimate))
 ```
 
+Check if income_cat is confounder or not?
+```{r}
+back_model = lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage + income_cat, data = cancer_county)
+
+alt_model = lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = cancer_county)
+
+anova(alt_model, back_model)
+```
+
+
+

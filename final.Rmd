@@ -222,7 +222,7 @@ anova(stepwise_model)[12, 3] #MSE: 431
 
 tibble(
   mse_model = anova(stepwise_model)[12, 3],
-  mse_LOOCV = cv.err$delta,
+  mse_LOOCV = cv.err$delta[1],
   mse_CV_train = mse_results$mse_train,
   mse_CV_test = mse_results$mse_test
 )
@@ -290,8 +290,6 @@ plot(step_no_all)
 
 ## Separate income level
 
-separate by income level
-
 ```{r}
 income_low_data <- cancer_county %>% filter(income_cat == 0) %>% dplyr::select(-income_cat)
 income_high_data <- cancer_county %>% filter(income_cat == 1) %>% dplyr::select(-income_cat)
@@ -318,7 +316,7 @@ dim(income_high_data)
 dim(income_low_data)
 ```
 
-stepwise by income level
+## Stepwise by income level
 
 ```{r}
 # low income
@@ -346,14 +344,14 @@ backward_model_high <- lm(formula = target_death_rate ~ incidence_rate + poverty
 summary(backward_model_high)
 ```
 
-check assumption
+## Check assumption
 
 ```{r}
 plot(backward_model_low)
 plot(backward_model_high)
 ```
 
-Cross Validation
+## Cross Validation
 
 ```{r}
 # low
@@ -364,9 +362,9 @@ low_cv <- train(target_death_rate ~ incidence_rate + poverty_percent +
     median_age_male + median_age_female + pct_black + pct_asian + 
     pct_other_race + pct_married_households + pct_upto_hs18_24 + 
     pct_with_coverage, data = income_low_data,
-                   trControl=data_train,
-                   method='lm',
-                   na.action=na.pass)
+                   trControl = data_train,
+                   method = 'lm',
+                   na.action = na.pass)
 
 low_cv
 
@@ -374,11 +372,99 @@ high_cv <- train(target_death_rate ~ incidence_rate + poverty_percent +
     median_age_male + pct_unemployed16_over + pct_asian + pct_other_race + 
     pct_married_households + pct_upto_hs18_24 + pct_with_coverage, 
     data = income_high_data,
-                   trControl=data_train,
-                   method='lm',
-                   na.action=na.pass)
+                   trControl = data_train,
+                   method = 'lm',
+                   na.action = na.pass)
 
 high_cv
 ```
 
+```{r}
+cross_df_low = crossv_mc(income_low_data, n = 100, test = 0.2) 
+cross_df_high = crossv_mc(income_high_data, n = 100, test = 0.2) 
+
+cross_result_low = 
+  cross_df_low %>% 
+  mutate(
+    step_mod = map(train, ~lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + median_age_female + pct_black + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = .x)),
+    rmse_train = map2_dbl(step_mod, train, ~rmse(model = .x, data = .y)),
+    rmse_test = map2_dbl(step_mod, test, ~rmse(model = .x, data = .y))
+    )
+  
+
+mse_results_low = cross_result_low %>% 
+  dplyr::select(rmse_train, rmse_test) %>%
+  summarize(mse_train_low = (mean(rmse_train))^2,
+            mse_test_low = (mean(rmse_test))^2) #mse results
+
+cross_result_high = 
+  cross_df_high %>% 
+  mutate(
+    step_mod = map(train, ~lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_asian + pct_other_race + 
+    pct_married_households + pct_upto_hs18_24 + pct_with_coverage, data = .x)),
+    rmse_train = map2_dbl(step_mod, train, ~rmse(model = .x, data = .y)),
+    rmse_test = map2_dbl(step_mod, test, ~rmse(model = .x, data = .y))
+    )
+  
+
+mse_results_high = cross_result_high %>% 
+  dplyr::select(rmse_train, rmse_test) %>%
+  summarize(mse_train_high = (mean(rmse_train))^2,
+            mse_test_high = (mean(rmse_test))^2)
+
+#LOOCV
+glm.fit_low = glm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + median_age_female + pct_black + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = income_low_data)
+
+cv.err_low = cv.glm(income_low_data, glm.fit_low)
+
+glm.fit_high = glm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_asian + pct_other_race + 
+    pct_married_households + pct_upto_hs18_24 + pct_with_coverage, data = income_high_data)
+
+cv.err_high = cv.glm(income_high_data, glm.fit_high)
+
+# The two delta values should be similar: we use the first one
+# The second value is bias corrected
+cv.err_low$delta  
+
+anova(backward_model_low)[11, 3] #MSE: 431
+anova(backward_model_high)[10, 3]
+
+mse_low = 
+  tibble(
+  mse_model = anova(backward_model_low)[11, 3],
+  mse_LOOCV = cv.err_low$delta[1],
+  mse_CV_train = mse_results_low$mse_train_low,
+  mse_CV_test = mse_results_low$mse_test_low
+)
+
+mse_high = 
+  tibble(
+  mse_model = anova(backward_model_high)[10, 3],
+  mse_LOOCV = cv.err_high$delta[1],
+  mse_CV_train = mse_results_high$mse_train_high,
+  mse_CV_test = mse_results_high$mse_test_high
+)
+
+rbind(mse_low, mse_high) %>% mutate(dataset = c("low income", "high income")) %>% dplyr::select(dataset, everything()) %>% knitr::kable(digits = 3)
+```
+
+## Influential points
+
+**Low Income**
+```{r}
+influence.measures(backward_model_low) %>% summary()
+```
+
+**High Income**
+```{r}
+influence.measures(backward_model_high) %>% summary()
+```
 

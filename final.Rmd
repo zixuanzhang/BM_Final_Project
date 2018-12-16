@@ -288,7 +288,7 @@ plot(step_no_all)
 ```
 
 
-## Separate income level
+## Separate Income Level
 
 ```{r}
 income_low_data <- cancer_county %>% filter(income_cat == 0) %>% dplyr::select(-income_cat)
@@ -316,7 +316,7 @@ dim(income_high_data)
 dim(income_low_data)
 ```
 
-## Stepwise by income level
+## Stepwise by Income Level
 
 ```{r}
 # low income
@@ -344,11 +344,43 @@ backward_model_high <- lm(formula = target_death_rate ~ incidence_rate + poverty
 summary(backward_model_high)
 ```
 
-## Check assumption
+## Check Assumption
 
 ```{r}
 plot(backward_model_low)
 plot(backward_model_high)
+```
+
+## Criterion-based Approach
+
+**Low income**
+```{r}
+criterion_stats_low =
+  regsubsets(target_death_rate ~ ., nvmax = 14, data = income_low_data) %>% 
+  summary()
+
+par(mar = c(4,4,1,1))
+par(mfrow = c(1,2))
+
+plot(2:15, criterion_stats_low$cp, xlab = "No of parameters", ylab = "Cp Statistic")
+abline(0,1)
+
+plot(2:15, criterion_stats_low$adjr2, xlab = "No of parameters", ylab = "Adj R2")
+```
+
+**High income**
+```{r}
+criterion_stats_high =
+  regsubsets(target_death_rate ~ ., nvmax = 14, data = income_high_data) %>% 
+  summary()
+
+par(mar = c(4,4,1,1))
+par(mfrow = c(1,2))
+
+plot(2:15, criterion_stats_high$cp, xlab = "No of parameters", ylab = "Cp Statistic")
+abline(0,1)
+
+plot(2:15, criterion_stats_high$adjr2, xlab = "No of parameters", ylab = "Adj R2")
 ```
 
 ## Cross Validation
@@ -378,6 +410,8 @@ high_cv <- train(target_death_rate ~ incidence_rate + poverty_percent +
 
 high_cv
 ```
+
+## Cross Validation
 
 ```{r}
 cross_df_low = crossv_mc(income_low_data, n = 100, test = 0.2) 

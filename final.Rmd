@@ -175,8 +175,7 @@ summary(stepwise_model)
 vif(stepwise_model) 
 
 # Cp and AIC and Adjusted R2
-
-model_dig <- glance(stepwise_model) %>% 
+model_dig = glance(stepwise_model) %>% 
   as.data.frame() %>% 
   dplyr::select(adj.r.squared, sigma, p.value, AIC, BIC) %>% 
   rename(RES = sigma) %>% 
@@ -185,46 +184,27 @@ model_dig <- glance(stepwise_model) %>%
 model_dig
 ```
 
-#### forword elimination:
-```{r}
-step_null <- lm(target_death_rate ~1, data = cancer_county)
-for_model <- step(step_null, scope = list(lower = step_null, upper = full_model), direction = "forward")
-
-summary(for_model)
-vif(for_model)
-```
-
-##### backward elimination:
-```{r}
-back_model <- step(full_model, direction = "backward", trace = FALSE)
-summary(back_model) # same as stepwise
-vif(back_model)
-```
-
-
 ## Cross validation and Criterion method summery
-```{r}
-cross_df <- crossv_mc(cancer_county, n = 100, test = 0.2)
 
-cross_result <- cross_df %>% 
-  mutate(train = map(train, as_tibble),
-         test = map(test, as_tibble),
-         step_mod = map(train, ~lm(target_death_rate ~ incidence_rate + poverty_percent + 
+```{r}
+cross_df = crossv_mc(cancer_county, n = 100, test = 0.2) 
+
+cross_result = 
+  cross_df %>% 
+  mutate(
+    step_mod = map(train, ~lm(target_death_rate ~ incidence_rate + poverty_percent + 
     median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
     pct_other_race + pct_married_households + pct_upto_hs18_24 + 
     pct_with_coverage + income_cat, data = .x)),
-    
     rmse_train = map2_dbl(step_mod, train, ~rmse(model = .x, data = .y)),
-    rmse_test = map2_dbl(step_mod, test, ~rmse(model = .x, data = .y)))
+    rmse_test = map2_dbl(step_mod, test, ~rmse(model = .x, data = .y))
+    )
   
 
-mse_result = cross_result %>% 
+mse_results = cross_result %>% 
   dplyr::select(rmse_train, rmse_test) %>%
   summarize(mse_train = (mean(rmse_train))^2,
-            mse_test = (mean(rmse_test))^2) %>% 
-  knitr::kable(digit = 3)
-  
-mse_result 
+            mse_test = (mean(rmse_test))^2) #mse results
 
 #LOOCV
 glm.fit = glm(target_death_rate ~ incidence_rate + poverty_percent + 
@@ -232,24 +212,24 @@ glm.fit = glm(target_death_rate ~ incidence_rate + poverty_percent +
     pct_other_race + pct_married_households + pct_upto_hs18_24 + 
     pct_with_coverage + income_cat, data = cancer_county)
 
-
-library(boot)                          # For cv.glm()
 cv.err = cv.glm(cancer_county, glm.fit)
 
 # The two delta values should be similar: we use the first one
 # The second value is bias corrected
 cv.err$delta   #434.8355
 
-anova(back_model)[12, 3] #MSE: 431
+anova(stepwise_model)[12, 3] #MSE: 431
+
+tibble(
+  mse_model = anova(stepwise_model)[12, 3],
+  mse_LOOCV = cv.err$delta,
+  mse_CV_train = mse_results$mse_train,
+  mse_CV_test = mse_results$mse_test
+)
 ```
 
 ##Bootstrap
 ```{r}
-back_model = lm(target_death_rate ~ incidence_rate + poverty_percent + 
-    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
-    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
-    pct_with_coverage + income_cat, data = cancer_county)
-
 cancer_county %>% 
   modelr::bootstrap(n = 1000) %>% 
   mutate(models = map(strap, ~lm(target_death_rate ~ incidence_rate + poverty_percent + 
@@ -261,13 +241,12 @@ cancer_county %>%
   unnest() %>% 
   group_by(term) %>% 
   summarize(boot_se = sd(estimate))
-
 ```
 
 
 
 ## Outliers
-```{r, message=FALSE}
+```{r, message = FALSE}
 par(mfrow = c(2,2))
 plot(stepwise_model) # we observe the 282, 1059 are outliers
 
@@ -276,12 +255,9 @@ stu_res_step <- rstandard(stepwise_model)
 outliers_y_step = stu_res_step[abs(stu_res_step) > 2.5]
 outliers_y_step
 
-stu_res_for = rstandard(for_model)
-outliers_y_for = stu_res_for[abs(stu_res_for) > 2.5]
-outliers_y_for
-
 # various measure of influence
-influence.measures(stepwise_model) #we observe the 282, 1059 are potential outliers
+influence.measures(stepwise_model) %>% 
+  summary() #we observe the 282, 1059 are potential outliers
 ```
 
 # Remove outliers:
@@ -291,7 +267,7 @@ influence.measures(stepwise_model) #we observe the 282, 1059 are potential outli
 step_model_no_282 <- cancer_county %>% 
   dplyr::select(-median_age, -pct_black, -median_age_female, avg_household_size) %>% 
   tibble::rowid_to_column() %>% 
-  filter(rowid !=282) %>% 
+  filter(rowid != 282) %>% 
   na.omit()
 
 step_no_282 <- update(stepwise_model, . ~ ., data = step_model_no_282)
@@ -301,7 +277,7 @@ summary(step_no_282)
 step_model_no_all <- cancer_county %>% 
   dplyr::select(-median_age, -pct_black, -median_age_female, avg_household_size) %>% 
   tibble::rowid_to_column() %>% 
-  filter(rowid !=282 & rowid != 1059) %>% 
+  filter(rowid != 282 & rowid != 1059) %>% 
   na.omit()
 
 step_no_all <- update(stepwise_model, . ~ ., data = step_model_no_all)

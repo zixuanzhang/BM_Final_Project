@@ -40,13 +40,23 @@ income_low_data <- cancer_county %>% filter(income_cat == 0) %>% dplyr::select(-
 income_high_data <- cancer_county %>% filter(income_cat == 1) %>% dplyr::select(-income_cat)
 ```
 
-#### step wise procedure
+#### full model
 
 ```{r}
 # low income
 full_model_low <- lm(target_death_rate ~., data = income_low_data)
 summary(full_model_low)
 
+# high income
+full_model_high <- lm(target_death_rate ~., data = income_high_data)
+summary(full_model_high)
+```
+
+
+#### step wise procedure
+
+```{r}
+# low income
 step(full_model_low, direction = "backward")
 
 backward_model_low <- lm(target_death_rate ~ incidence_rate + med_income + 
@@ -56,9 +66,6 @@ backward_model_low <- lm(target_death_rate ~ incidence_rate + med_income +
 summary(backward_model_low)
 
 # high income
-full_model_high <- lm(target_death_rate ~., data = income_high_data)
-summary(full_model_high)
-
 step(full_model_high, direction = "backward")
 
 backward_model_high <- lm(target_death_rate ~ incidence_rate + med_income + 
@@ -95,7 +102,7 @@ abline(0,1)
 plot(2:13, criterion_stats_low$adjr2, xlab = "No of parameters", ylab = "Adj R2")
 
 ## 9 predictors are sufficient
-criterion_model_low <- lm(formula = target_death_rate ~ incidence_rate + poverty_percent + 
+criterion_model_low <- lm(formula = target_death_rate ~ incidence_rate + med_income + 
     median_age_male + median_age_female + pct_white + pct_black + pct_asian + 
     pct_other_race +  pct_with_coverage, data = income_low_data)
 ```
@@ -117,19 +124,48 @@ abline(0,1)
 plot(2:13, criterion_stats_high$adjr2, xlab = "No of parameters", ylab = "Adj R2")
 
 # 7 predictors are sufficients
-criterion_model_high <- lm(formula = target_death_rate ~ incidence_rate + poverty_percent + 
-    median_age_female + pct_unemployed16_over + pct_black + pct_other_race + pct_upto_hs18_24, 
+criterion_model_high <- lm(formula = target_death_rate ~ incidence_rate + med_income +
+                             median_age_female + pct_unemployed16_over + pct_black + pct_other_race +
+                             pct_upto_hs18_24, 
     data = income_high_data)
 ```
 
-check assumption
+check assumption and influential points
 
 ```{r}
 plot(criterion_model_low)
 plot(criterion_model_high)
 ```
 
-## outlier
+
+## Model comparison
+
+backward_model_low <- lm(target_death_rate ~ incidence_rate + med_income + 
+    median_age_male + median_age_female + pct_white + pct_black + 
+    pct_asian + pct_other_race + pct_upto_hs18_24 + pct_with_coverage, 
+    data = income_low_data)  10 predictor
+    
+criterion_model_low <- lm(target_death_rate ~ incidence_rate + med_income + 
+    median_age_male + median_age_female + pct_white + pct_black + pct_asian + 
+    pct_other_race +  pct_with_coverage, data = income_low_data)  9 predictor
+    
+
+backward_model_high <- lm(target_death_rate ~ incidence_rate + med_income + 
+    median_age_male + pct_unemployed16_over + pct_black + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = income_high_data) 10 predictor
+
+
+criterion_model_high <- lm(target_death_rate ~ incidence_rate + med_income +
+                             median_age_female + pct_unemployed16_over + pct_black + pct_other_race +
+                             pct_upto_hs18_24, 
+    data = income_high_data)  7 predictor
+
+```{r}
+anova(backward_model_low, criterion_model_low)
+anova(backward_model_high, criterion_model_high)
+```
+
 
 
 

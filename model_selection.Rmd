@@ -1,6 +1,6 @@
 ---
-title: "model selection"
-author: "Eleanor Zhang"
+title: "Final project code supplement"
+author: "Eleanor Zhang, Bingyu Sun, Annie Yu, Justin Hsie"
 date: "12/16/2018"
 output: pdf_document
 ---
@@ -205,6 +205,9 @@ check assumption and influential points
 ```{r}
 plot(criterion_model_low)
 plot(criterion_model_high)
+
+HH::vif(criterion_model_low)
+HH::vif(criterion_model_high)
 ```
 
 
@@ -244,6 +247,22 @@ high_model <- lm(formula = target_death_rate ~ incidence_rate + med_income +
 plot(low_model)
 plot(high_model)
 ```
+
+get the table
+
+```{r}
+low_model_measure <- summary(low_model) %>% tidy
+high_model_measure <- summary(high_model) %>% tidy
+
+low_model_measure %>% knitr::kable()
+high_model_measure %>% knitr::kable()
+
+glance(low_model) %>% rbind(glance(high_model)) %>% 
+  mutate(model = c("low income", "high income")) %>% 
+  select(model, r.squared, adj.r.squared, sigma, p.value,AIC,BIC) %>% 
+  knitr::kable()
+```
+
 
 ## Influential points
 
@@ -335,19 +354,20 @@ anova(high_model)[8, 3]
 
 mse_low = 
   tibble(
-  mse_model = anova(low_model)[10, 3],
-  mse_LOOCV = cv.err_low$delta[1],
-  mse_CV_train = mse_results_low$mse_train_low,
-  mse_CV_test = mse_results_low$mse_test_low
+  model.mse = anova(low_model)[10, 3],
+  LOOCV.mse = cv.err_low$delta[1],
+  CV.train.mse = mse_results_low$mse_train_low,
+  CV.test.mse = mse_results_low$mse_test_low
 )
 
 mse_high = 
   tibble(
-  mse_model = anova(high_model)[8, 3],
-  mse_LOOCV = cv.err_high$delta[1],
-  mse_CV_train = mse_results_high$mse_train_high,
-  mse_CV_test = mse_results_high$mse_test_high
+  model.mse = anova(high_model)[8, 3],
+  LOOCV.mse= cv.err_high$delta[1],
+  CV.train.mse = mse_results_high$mse_train_high,
+  CV.test.mse = mse_results_high$mse_test_high
 )
+
 
 rbind(mse_low, mse_high) %>% mutate(dataset = c("low income", "high income")) %>% 
   dplyr::select(dataset, everything()) %>% knitr::kable(digits = 3)

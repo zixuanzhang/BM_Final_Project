@@ -495,10 +495,39 @@ rbind(mse_low, mse_high) %>% mutate(dataset = c("low income", "high income")) %>
 **Low Income**
 ```{r}
 influence.measures(backward_model_low) %>% summary()
+plot(backward_model_low)
+
+income_low_rm <- income_low_data[-c(332,101,30),]
+
+backward_model_low_rm <- lm(formula = target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + median_age_female + pct_black + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = income_low_rm)
+
+cbind(summary(backward_model_low_rm) %>% tidy %>% dplyr::select(-statistic), 
+      summary(backward_model_low) %>% tidy %>% dplyr::select(-statistic)) %>% 
+  knitr::kable()
+
+plot(backward_model_low_rm)
 ```
 
 **High Income**
 ```{r}
 influence.measures(backward_model_high) %>% summary()
+plot(backward_model_high)
+
+income_high_rm <- income_high_data[-c(1088,2360,248),]
+
+backward_model_high_rm <- lm(formula = target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_asian + pct_other_race + 
+    pct_married_households + pct_upto_hs18_24 + pct_with_coverage, 
+    data = income_high_rm)
+summary(backward_model_high_rm)
+
+cbind(summary(backward_model_high_rm) %>% tidy %>% dplyr::select(-statistic), 
+      summary(backward_model_high) %>% tidy %>% dplyr::select(-statistic)) %>% 
+  knitr::kable()
+
+plot(backward_model_high_rm)
 ```
 

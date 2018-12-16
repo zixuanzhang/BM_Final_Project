@@ -2,15 +2,22 @@
 title: "model selection"
 author: "Eleanor Zhang"
 date: "12/16/2018"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(dplyr)
+library(leaps)
+library(caret)
+library(glmnet)
+library(broom)
+library(modelr)
+library(boot)
 ```
 
-## read data
+## read data and select variables to import
 
 ```{r}
 cancer_data <- read_csv("./data/Cancer_Registry.csv")
@@ -31,14 +38,77 @@ dim(cancer_county)
 anyNA(cancer_county)
 ```
 
-## model selection
 
-Seperate by income: piecewise 
+## Data description:
+
+* **target_death_rate:** mean per capita (100,000) cancer mortalities (a)
+* **avg_ann_count:** mean number of reported cases of cancer diagnosed annually (a)
+* **avg_deaths_per_year:** mean number of reported mortalities due to cancer (a)
+* **incidence_rate:** mean per capita (100,000) cancer diagnoses (a)
+* **med_income:** median income per county (b)
+* **pop_est2015:** population of county (b)
+* **poverty_percent:** percent of population in poverty (b)
+* **study_per_cap** per capita number of cancer-related clinical trials per county (a)
+* **binned_inc:** median income per capita binned by decile (b)
+* **median_age:** median age of county residents (b)
+* **median_age_male:** median age of male county residents (b)
+* **median_age_female:** median age of female county residents (b)
+* **geography:** county name (b)
+* **avg_household_size:** mean household size of county (b)
+* **percent_married:** percent of county residents who are married (b)
+* **pct_no_hs18_24:** percent of county residents ages 18-24 highest education attained: less than high school (b) 
+* **pct_hs18_24:** percent of county residents ages 18-24 highest education attained: high school diploma (b)
+* **pct_some_col18_24:** percent of county residents ages 18-24 highest education attained: some college (b) 
+* **pct_bach_deg18_24:** percent of county residents ages 18-24 highest education attained: bachelor's degree (b)
+* **pct_hs25_over:** percent of county residents ages 25 and over highest education attained: high school diploma (b)              
+* **pct_bach_deg25_over:** percent of county residents ages 25 and over highest education attained: bachelor's degree (b)
+* **pct_employed16_over:** percent of county residents ages 16 and over employed (b)        
+* **pct_unemployed16_over:** percent of county residents ages 16 and over unemployed (b)     
+* **pct_private_coverage:** percent of county residents with private health coverage (b)
+* **pct_private_coverage_alone:** percent of county residents with private health coverage alone (no public assistance) (b) 
+* **pct_emp_priv_coverage:** percent of county residents with employee-provided private health coverage (b)     
+* **pct_public_coverage:** percent of county residents with government-provided health coverage (b)
+* **pct_public_coverage_alone:** percent of county residents with government-provided health coverage alone (b)  
+* **pct_white:** percent of county residents who identify as White (b)           
+* **pct_black:** percent of county residents who identify as Black (b)
+* **pct_asian:** percent of county residents who identify as Asian (b)                  
+* **pct_other_race:** percent of county residents who identify in a category which is not White, Black, or Asian (b)          
+* **pct_married_households:** percent of married households (b)
+* **birth_rate:** number of live births relative to number of women in county (b)
+
+Separate entire dataset into two groups: low income and high income:
 
 ```{r}
 income_low_data <- cancer_county %>% filter(income_cat == 0) %>% dplyr::select(-income_cat)
 income_high_data <- cancer_county %>% filter(income_cat == 1) %>% dplyr::select(-income_cat)
 ```
+
+Description
+
+```{r}
+summary(income_low_data)
+summary(income_high_data)
+
+income_low_data %>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram(bins = 30)
+
+income_high_data %>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram(bins = 30)
+
+cor(income_low_data) %>% 
+  knitr::kable()
+
+cor(income_high_data) %>% 
+  knitr::kable()
+```
+
+## Model selection
 
 #### full model
 
@@ -161,11 +231,127 @@ criterion_model_high <- lm(target_death_rate ~ incidence_rate + med_income +
                              pct_upto_hs18_24, 
     data = income_high_data)  7 predictor
 
+#### select model with least predictors
+
 ```{r}
-anova(backward_model_low, criterion_model_low)
-anova(backward_model_high, criterion_model_high)
+low_model <- lm(formula = target_death_rate ~ incidence_rate + med_income + 
+    median_age_male + median_age_female + pct_white + pct_black + pct_asian + 
+    pct_other_race +  pct_with_coverage, data = income_low_data)
+high_model <- lm(formula = target_death_rate ~ incidence_rate + med_income +
+                             median_age_female + pct_unemployed16_over + pct_black + pct_other_race +
+                             pct_upto_hs18_24, 
+    data = income_high_data)
+plot(low_model)
+plot(high_model)
 ```
 
+## Influential points
+
+remove influential points in low income
+```{r}
+income_low_rm <- income_low_data[-c(30,101,332),]
+
+low_model_rm<- lm(formula = target_death_rate ~ incidence_rate + med_income + 
+    median_age_male + median_age_female + pct_white + pct_black + pct_asian + 
+    pct_other_race +  pct_with_coverage, data = income_low_rm)
+summary(low_model_rm)
+summary(low_model)
+```
+
+remove influential points in high income
+
+```{r}
+income_high_rm <- income_high_data[-c(1088, 1204, 248),]
+
+high_model_rm <- lm(formula = target_death_rate ~ incidence_rate + med_income +
+                             median_age_female + pct_unemployed16_over + pct_black + pct_other_race +
+                             pct_upto_hs18_24, 
+    data = income_high_rm)
+summary(high_model_rm)
+summary(high_model)
+```
+
+
+## cross validation
+
+CV for low and high income model
+
+```{r}
+cross_df_low = crossv_mc(income_low_data, n = 100, test = 0.2) 
+cross_df_high = crossv_mc(income_high_data, n = 100, test = 0.2) 
+
+cross_result_low = 
+  cross_df_low %>% 
+  mutate(
+    step_mod = map(train, ~lm(target_death_rate ~ incidence_rate + med_income + 
+    median_age_male + median_age_female + pct_white + pct_black + pct_asian + 
+    pct_other_race +  pct_with_coverage, data = .x)),
+    rmse_train = map2_dbl(step_mod, train, ~rmse(model = .x, data = .y)),
+    rmse_test = map2_dbl(step_mod, test, ~rmse(model = .x, data = .y))
+    )
+  
+
+mse_results_low = cross_result_low %>% 
+  dplyr::select(rmse_train, rmse_test) %>%
+  summarize(mse_train_low = (mean(rmse_train))^2,
+            mse_test_low = (mean(rmse_test))^2) #mse results
+
+cross_result_high = 
+  cross_df_high %>% 
+  mutate(
+    step_mod = map(train, ~lm(target_death_rate ~ incidence_rate + med_income +
+                             median_age_female + pct_unemployed16_over + pct_black + pct_other_race +
+                             pct_upto_hs18_24, data = .x)),
+    rmse_train = map2_dbl(step_mod, train, ~rmse(model = .x, data = .y)),
+    rmse_test = map2_dbl(step_mod, test, ~rmse(model = .x, data = .y))
+    )
+  
+
+mse_results_high = cross_result_high %>% 
+  dplyr::select(rmse_train, rmse_test) %>%
+  summarize(mse_train_high = (mean(rmse_train))^2,
+            mse_test_high = (mean(rmse_test))^2)
+
+#LOOCV
+glm.fit_low = glm(target_death_rate ~ incidence_rate + med_income + 
+    median_age_male + median_age_female + pct_white + pct_black + pct_asian + 
+    pct_other_race +  pct_with_coverage, data = income_low_data)
+
+cv.err_low = cv.glm(income_low_data, glm.fit_low)
+
+glm.fit_high = glm(target_death_rate ~ incidence_rate + med_income +
+                             median_age_female + pct_unemployed16_over + pct_black + pct_other_race +
+                             pct_upto_hs18_24, data = income_high_data)
+
+cv.err_high = cv.glm(income_high_data, glm.fit_high)
+
+# The two delta values should be similar: we use the first one
+# The second value is bias corrected
+cv.err_low$delta  
+
+anova(low_model)
+anova(low_model)[10, 3] #MSE: 431
+anova(high_model)[8, 3]
+
+mse_low = 
+  tibble(
+  mse_model = anova(low_model)[10, 3],
+  mse_LOOCV = cv.err_low$delta[1],
+  mse_CV_train = mse_results_low$mse_train_low,
+  mse_CV_test = mse_results_low$mse_test_low
+)
+
+mse_high = 
+  tibble(
+  mse_model = anova(high_model)[8, 3],
+  mse_LOOCV = cv.err_high$delta[1],
+  mse_CV_train = mse_results_high$mse_train_high,
+  mse_CV_test = mse_results_high$mse_test_high
+)
+
+rbind(mse_low, mse_high) %>% mutate(dataset = c("low income", "high income")) %>% 
+  dplyr::select(dataset, everything()) %>% knitr::kable(digits = 3)
+```
 
 
 

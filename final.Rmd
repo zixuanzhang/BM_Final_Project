@@ -304,11 +304,18 @@ model_high_income <- lm(target_death_rate ~ incidence_rate + poverty_percent +
     pct_other_race + pct_married_households + pct_upto_hs18_24 + 
     pct_with_coverage, data = income_high_data)
 
+# put into tibble
+tibble(data = c("low income", "high income"),
+       lm = list(summary(model_low_income) %>% tidy, 
+                 summary(model_high_income) %>% tidy)) %>% 
+  unnest() %>% 
+  dplyr::select(-statistic)
+
+# result in data frame 
 summary_table = cbind(summary(model_low_income)$coefficients[,1],
                       summary(model_low_income)$coefficients[,4],
                       summary(model_high_income)$coefficients[,1], 
                       summary(model_high_income)$coefficients[,4])
-summary_table
 
 plot(model_high_income)
 plot(model_low_income)

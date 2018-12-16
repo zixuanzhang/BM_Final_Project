@@ -287,3 +287,98 @@ par(mfrow = c(2,2))
 plot(step_no_all)
 ```
 
+
+## Separate income level
+
+separate by income level
+
+```{r}
+income_low_data <- cancer_county %>% filter(income_cat == 0) %>% dplyr::select(-income_cat)
+income_high_data <- cancer_county %>% filter(income_cat == 1) %>% dplyr::select(-income_cat)
+
+model_low_income <- lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = income_low_data)
+
+model_high_income <- lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = income_high_data)
+
+summary_table = cbind(summary(model_low_income)$coefficients[,1],
+                      summary(model_low_income)$coefficients[,4],
+                      summary(model_high_income)$coefficients[,1], 
+                      summary(model_high_income)$coefficients[,4])
+summary_table
+
+plot(model_high_income)
+plot(model_low_income)
+dim(income_high_data)
+dim(income_low_data)
+```
+
+stepwise by income level
+
+```{r}
+# low income
+full_model_low <- lm(target_death_rate ~., data = income_low_data)
+summary(full_model_low)
+
+step(full_model_low, direction = "backward")
+
+backward_model_low <- lm(formula = target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + median_age_female + pct_black + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = income_low_data)
+summary(backward_model_low)
+
+# high income
+full_model_high <- lm(target_death_rate ~., data = income_high_data)
+summary(full_model_high)
+
+step(full_model_high, direction = "backward")
+
+backward_model_high <- lm(formula = target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_asian + pct_other_race + 
+    pct_married_households + pct_upto_hs18_24 + pct_with_coverage, 
+    data = income_high_data)
+summary(backward_model_high)
+```
+
+check assumption
+
+```{r}
+plot(backward_model_low)
+plot(backward_model_high)
+```
+
+Cross Validation
+
+```{r}
+# low
+set.seed(1)
+data_train <- trainControl(method = "repeatedcv", number = 10, repeats = 100)
+
+low_cv <- train(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + median_age_female + pct_black + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = income_low_data,
+                   trControl=data_train,
+                   method='lm',
+                   na.action=na.pass)
+
+low_cv
+
+high_cv <- train(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_asian + pct_other_race + 
+    pct_married_households + pct_upto_hs18_24 + pct_with_coverage, 
+    data = income_high_data,
+                   trControl=data_train,
+                   method='lm',
+                   na.action=na.pass)
+
+high_cv
+```
+
+

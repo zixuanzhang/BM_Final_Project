@@ -125,12 +125,20 @@ names(cancer_county_model)
 
  [1] "target_death_rate"      
  [2] "incidence_rate"         
- [3]  "med_income"            
- [4] "poverty_percent"        "median_age"             "median_age_male"       
- [7] "median_age_female"      "avg_household_size"     "pct_unemployed16_over" 
-[10] "pct_white"              "pct_black"              "pct_asian"             
-[13] "pct_other_race"         "pct_married_households" "pct_upto_hs18_24"      
-[16] "pct_with_coverage"      "income_level"
+ [3] "poverty_percent"        
+ [4]  "median_age"             
+ [5]  "median_age_male"       
+ [6] "median_age_female"      
+ [7]  "avg_household_size"     
+ [8]  "pct_unemployed16_over" 
+[9]  "pct_white"              
+[10]  "pct_black"              
+[11]  "pct_asian"             
+[12] "pct_other_race"         
+[13]  "pct_married_households" 
+[14]  "pct_upto_hs18_24"      
+[15] "pct_with_coverage"     
+[16]  "income_level"
 
 
 look at variables
@@ -168,10 +176,69 @@ MASS::boxcox(back_model)
 ```
 
 
+
 ```{r}
 cancer_county_model %>% 
   group_by(income_level) %>% 
   ggplot(aes(x = poverty_percent, y = target_death_rate)) + geom_point() + geom_smooth() + facet_grid(~income_level)
 ```
+
+interaction : income_level vs. poverty_percent
+
+```{r}
+lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage + income_level + income_level*poverty_percent, data = cancer_county_model) %>% 
+  summary()
+```
+
+separate by income level
+
+```{r}
+income_low_data <- cancer_county_model %>% filter(income_level == 0)
+income_high_data <- cancer_county_model %>% filter(income_level == 1)
+
+model_low_income <- lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = income_low_data)
+
+model_high_income <- lm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage, data = income_high_data)
+
+summary_table = cbind(summary(model_low_income)$coefficients[,1],
+                      summary(model_low_income)$coefficients[,4],
+                      summary(model_high_income)$coefficients[,1], 
+                      summary(model_high_income)$coefficients[,4])
+summary_table
+
+plot(model_high_income)
+plot(model_low_income)
+dim(income_high_data)
+dim(income_low_data)
+```
+
+## Cross validation
+
+```{r}
+library(boot)
+
+glm.fit <- glm(target_death_rate ~ incidence_rate + poverty_percent + 
+    median_age_male + pct_unemployed16_over + pct_white + pct_asian + 
+    pct_other_race + pct_married_households + pct_upto_hs18_24 + 
+    pct_with_coverage + income_level, data = cancer_county_model)
+
+cv.err <- cv.glm(cancer_county_model, glm.fit)
+
+cv.err$delta
+summary(back_model)
+anova(back_model)
+dim(cancer_county_model)
+glance(back_model)
+```
+
 
 
